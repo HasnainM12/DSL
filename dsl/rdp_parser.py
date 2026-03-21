@@ -122,8 +122,11 @@ class TokenType:
     ROTATE_RIGHT      = "ROTATE_RIGHT"
     ROTATE_LEFT_RIGHT = "ROTATE_LEFT_RIGHT"
     ROTATE_RIGHT_LEFT = "ROTATE_RIGHT_LEFT"
-    SET_COLOUR        = "SET_COLOUR"
-    INSERT            = "INSERT"
+    SET_COLOUR             = "SET_COLOUR"
+    SET_PARENT_COLOUR      = "SET_PARENT_COLOUR"
+    SET_UNCLE_COLOUR       = "SET_UNCLE_COLOUR"
+    SET_GRANDPARENT_COLOUR = "SET_GRANDPARENT_COLOUR"
+    INSERT                 = "INSERT"
     DELETE             = "DELETE"
     # Sensor keywords
     KEYWORD  = "KEYWORD"
@@ -146,13 +149,16 @@ _SENSOR_KEYWORDS = {
 
 # Action keywords (order matters — longer matches first)
 _ACTION_KEYWORDS = [
-    ("ROTATE_LEFT_RIGHT", TokenType.ROTATE_LEFT_RIGHT),
-    ("ROTATE_RIGHT_LEFT", TokenType.ROTATE_RIGHT_LEFT),
-    ("ROTATE_LEFT",       TokenType.ROTATE_LEFT),
-    ("ROTATE_RIGHT",      TokenType.ROTATE_RIGHT),
-    ("SET_COLOUR",        TokenType.SET_COLOUR),
-    ("INSERT",            TokenType.INSERT),
-    ("DELETE",            TokenType.DELETE),
+    ("ROTATE_LEFT_RIGHT",    TokenType.ROTATE_LEFT_RIGHT),
+    ("ROTATE_RIGHT_LEFT",    TokenType.ROTATE_RIGHT_LEFT),
+    ("ROTATE_LEFT",          TokenType.ROTATE_LEFT),
+    ("ROTATE_RIGHT",         TokenType.ROTATE_RIGHT),
+    ("SET_GRANDPARENT_COLOUR", TokenType.SET_GRANDPARENT_COLOUR),
+    ("SET_PARENT_COLOUR",    TokenType.SET_PARENT_COLOUR),
+    ("SET_UNCLE_COLOUR",     TokenType.SET_UNCLE_COLOUR),
+    ("SET_COLOUR",           TokenType.SET_COLOUR),
+    ("INSERT",               TokenType.INSERT),
+    ("DELETE",               TokenType.DELETE),
 ]
 
 _LOGIC_KEYWORDS = {
@@ -480,6 +486,21 @@ class RDPParser:
             self._advance()
             str_tok = self._expect(TokenType.STRING)
             return ActionNode(action_type="SET_COLOUR", argument=str_tok.value)
+
+        if tok.type == TokenType.SET_PARENT_COLOUR:
+            self._advance()
+            str_tok = self._expect(TokenType.STRING)
+            return ActionNode(action_type="SET_PARENT_COLOUR", argument=str_tok.value)
+
+        if tok.type == TokenType.SET_UNCLE_COLOUR:
+            self._advance()
+            str_tok = self._expect(TokenType.STRING)
+            return ActionNode(action_type="SET_UNCLE_COLOUR", argument=str_tok.value)
+
+        if tok.type == TokenType.SET_GRANDPARENT_COLOUR:
+            self._advance()
+            str_tok = self._expect(TokenType.STRING)
+            return ActionNode(action_type="SET_GRANDPARENT_COLOUR", argument=str_tok.value)
 
         if tok.type == TokenType.INSERT:
             self._advance()

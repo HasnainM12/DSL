@@ -46,6 +46,9 @@ action: ROT_LEFT_KW        -> rotate_left
       | ROT_LEFT_RIGHT_KW  -> rotate_left_right
       | ROT_RIGHT_LEFT_KW  -> rotate_right_left
       | "SET_COLOUR" string -> set_colour
+      | "SET_PARENT_COLOUR" string -> set_parent_colour
+      | "SET_UNCLE_COLOUR" string -> set_uncle_colour
+      | "SET_GRANDPARENT_COLOUR" string -> set_grandparent_colour
       | "INSERT" SIGNED_NUMBER -> insert_cmd
       | "DELETE" SIGNED_NUMBER -> delete_cmd
 

@@ -71,6 +71,30 @@ class TestValidParsing:
             tree = interpreter.parser.parse(f.read())
         assert tree is not None
 
+    def test_set_parent_colour_parses(self, interpreter):
+        script = 'SET_PARENT_COLOUR "BLACK"'
+        tree = interpreter.parser.parse(script)
+        assert tree is not None
+
+    def test_set_uncle_colour_parses(self, interpreter):
+        script = 'SET_UNCLE_COLOUR "BLACK"'
+        tree = interpreter.parser.parse(script)
+        assert tree is not None
+
+    def test_set_grandparent_colour_parses(self, interpreter):
+        script = 'SET_GRANDPARENT_COLOUR "RED"'
+        tree = interpreter.parser.parse(script)
+        assert tree is not None
+
+    def test_rb_case1_action_block_parses(self, interpreter):
+        script = ('IF node_colour == "RED" AND parent_colour == "RED" '
+                  'AND uncle_colour == "RED" THEN { '
+                  'SET_PARENT_COLOUR "BLACK" '
+                  'SET_UNCLE_COLOUR "BLACK" '
+                  'SET_GRANDPARENT_COLOUR "RED" }')
+        tree = interpreter.parser.parse(script)
+        assert tree is not None
+
 
 # ============================================================
 # Invalid Parsing

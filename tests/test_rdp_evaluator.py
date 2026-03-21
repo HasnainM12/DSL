@@ -78,3 +78,46 @@ class TestRDPEvaluator:
         from dsl.rdp_parser import LexerError
         with pytest.raises(LexerError):
             evaluate_script(script, None)
+
+    def test_eval_set_parent_colour(self):
+        """SET_PARENT_COLOUR returns the correct tagged tuple."""
+        script = 'SET_PARENT_COLOUR "BLACK"'
+        actions = evaluate_script(script, None)
+        assert actions == [("SET_PARENT_COLOUR", "BLACK")]
+
+    def test_eval_set_uncle_colour(self):
+        """SET_UNCLE_COLOUR returns the correct tagged tuple."""
+        script = 'SET_UNCLE_COLOUR "BLACK"'
+        actions = evaluate_script(script, None)
+        assert actions == [("SET_UNCLE_COLOUR", "BLACK")]
+
+    def test_eval_set_grandparent_colour(self):
+        """SET_GRANDPARENT_COLOUR returns the correct tagged tuple."""
+        script = 'SET_GRANDPARENT_COLOUR "RED"'
+        actions = evaluate_script(script, None)
+        assert actions == [("SET_GRANDPARENT_COLOUR", "RED")]
+
+    def test_eval_rb_case1_block(self):
+        """A full RB Case 1 action block evaluates to three colour tuples."""
+        script = ('IF node_colour == "RED" AND parent_colour == "RED" '
+                  'AND uncle_colour == "RED" THEN { '
+                  'SET_PARENT_COLOUR "BLACK" '
+                  'SET_UNCLE_COLOUR "BLACK" '
+                  'SET_GRANDPARENT_COLOUR "RED" }')
+        bst = BST()
+        bst.insert(10)
+        bst.insert(5)
+        bst.insert(20)
+        bst.insert(25)
+        bst.root.colour = "BLACK"
+        bst.root.left.colour = "RED"
+        bst.root.right.colour = "RED"
+        bst.root.right.right.colour = "RED"
+        # From perspective of node 25: parent=20(RED), uncle=5(RED)
+        actions = evaluate_script(script, bst.root.right.right)
+        assert actions == [
+            ("SET_PARENT_COLOUR", "BLACK"),
+            ("SET_UNCLE_COLOUR", "BLACK"),
+            ("SET_GRANDPARENT_COLOUR", "RED"),
+        ]
+

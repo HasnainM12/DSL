@@ -255,3 +255,42 @@ class TestNewFeatures:
             bst.root = interpreter.balance_tree(bst.root, avl_script)
         # AVL tree with 10 nodes should have height ~4
         assert bst.root.height <= 5
+
+    def test_set_parent_colour(self, interpreter):
+        """SET_PARENT_COLOUR changes the parent node's colour."""
+        bst = BST()
+        bst.insert(10)
+        bst.insert(20)
+        bst.root.colour = "BLACK"
+        bst.root.right.colour = "RED"
+        # Apply at child node (20) — should colour parent (10)
+        new_root = interpreter.apply_rules(bst.root.right, 'SET_PARENT_COLOUR "RED"')
+        assert bst.root.colour == "RED"
+
+    def test_set_uncle_colour(self, interpreter):
+        """SET_UNCLE_COLOUR changes the uncle node's colour."""
+        bst = BST()
+        bst.insert(10)
+        bst.insert(5)   # uncle
+        bst.insert(20)
+        bst.insert(25)  # node — uncle is 5
+        bst.root.colour = "BLACK"
+        bst.root.left.colour = "RED"
+        bst.root.right.colour = "RED"
+        bst.root.right.right.colour = "RED"
+        # Apply at node 25 — uncle is 5
+        interpreter.apply_rules(bst.root.right.right, 'SET_UNCLE_COLOUR "BLACK"')
+        assert bst.root.left.colour == "BLACK"
+
+    def test_set_grandparent_colour(self, interpreter):
+        """SET_GRANDPARENT_COLOUR changes the grandparent node's colour."""
+        bst = BST()
+        bst.insert(10)
+        bst.insert(20)
+        bst.insert(30)
+        bst.root.colour = "BLACK"
+        bst.root.right.colour = "RED"
+        bst.root.right.right.colour = "RED"
+        # Apply at node 30 — grandparent is 10
+        interpreter.apply_rules(bst.root.right.right, 'SET_GRANDPARENT_COLOUR "RED"')
+        assert bst.root.colour == "RED"

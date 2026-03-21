@@ -57,11 +57,37 @@ class BalancingLogic(Transformer):
             uncle = grandparent.left
         return uncle.colour if uncle else 'BLACK'
 
+    @staticmethod
+    def _parse_colour(colour_str):
+        """Extract a clean colour string from a Lark tree or plain string."""
+        raw = str(colour_str.children[0]) if hasattr(colour_str, 'children') else str(colour_str)
+        return raw.strip('"').upper()
+
+    @staticmethod
+    def _get_uncle(node):
+        """Return the uncle node (or None) for a given node."""
+        if not node or not node.parent or not node.parent.parent:
+            return None
+        grandparent = node.parent.parent
+        if grandparent.left is node.parent:
+            return grandparent.right
+        return grandparent.left
+
     def set_colour(self, colour_str):
         """Handle SET_COLOUR action — returns a tuple for the action loop."""
-        raw = str(colour_str.children[0]) if hasattr(colour_str, 'children') else str(colour_str)
-        colour = raw.strip('"').upper()
-        return ("SET_COLOUR", colour)
+        return ("SET_COLOUR", self._parse_colour(colour_str))
+
+    def set_parent_colour(self, colour_str):
+        """Handle SET_PARENT_COLOUR — recolour current node's parent."""
+        return ("SET_PARENT_COLOUR", self._parse_colour(colour_str))
+
+    def set_uncle_colour(self, colour_str):
+        """Handle SET_UNCLE_COLOUR — recolour current node's uncle."""
+        return ("SET_UNCLE_COLOUR", self._parse_colour(colour_str))
+
+    def set_grandparent_colour(self, colour_str):
+        """Handle SET_GRANDPARENT_COLOUR — recolour current node's grandparent."""
+        return ("SET_GRANDPARENT_COLOUR", self._parse_colour(colour_str))
 
     def string(self, s):
         return str(s)
@@ -209,6 +235,16 @@ class DSLInterpreter:
                 new_root = tree_ops.rotate_right_left(new_root)
             elif isinstance(action, tuple) and action[0] == "SET_COLOUR":
                 new_root.colour = action[1]
+            elif isinstance(action, tuple) and action[0] == "SET_PARENT_COLOUR":
+                if new_root.parent:
+                    new_root.parent.colour = action[1]
+            elif isinstance(action, tuple) and action[0] == "SET_UNCLE_COLOUR":
+                uncle = BalancingLogic._get_uncle(new_root)
+                if uncle:
+                    uncle.colour = action[1]
+            elif isinstance(action, tuple) and action[0] == "SET_GRANDPARENT_COLOUR":
+                if new_root.parent and new_root.parent.parent:
+                    new_root.parent.parent.colour = action[1]
         
         return new_root
 

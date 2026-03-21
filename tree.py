@@ -128,6 +128,12 @@ class BST:
         y.left = z
         z.right = T2
 
+        # Update parent pointers
+        y.parent = z.parent
+        z.parent = y
+        if T2:
+            T2.parent = z
+
         # Update heights (z first, then y)
         z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
         y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
@@ -149,6 +155,12 @@ class BST:
         # Perform rotation
         y.right = z
         z.left = T3
+
+        # Update parent pointers
+        y.parent = z.parent
+        z.parent = y
+        if T3:
+            T3.parent = z
 
         # Update heights
         z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))

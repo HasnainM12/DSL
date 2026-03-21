@@ -73,6 +73,15 @@ class RDPEvaluator:
         if node.action_type == "SET_COLOUR":
             return ("SET_COLOUR", str(node.argument).strip('"').upper())
         
+        if node.action_type == "SET_PARENT_COLOUR":
+            return ("SET_PARENT_COLOUR", str(node.argument).strip('"').upper())
+
+        if node.action_type == "SET_UNCLE_COLOUR":
+            return ("SET_UNCLE_COLOUR", str(node.argument).strip('"').upper())
+
+        if node.action_type == "SET_GRANDPARENT_COLOUR":
+            return ("SET_GRANDPARENT_COLOUR", str(node.argument).strip('"').upper())
+
         if node.action_type == "INSERT":
             return ("INSERT", int(float(node.argument)))
             

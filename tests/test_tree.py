@@ -186,6 +186,34 @@ class TestRotations:
         assert bst.root.left.parent is bst.root
         assert bst.root.right.parent is bst.root
 
+    def test_parent_references_after_rotate_left(self):
+        """Parent pointers are updated correctly after rotate_left."""
+        bst = BST()
+        for v in [10, 20, 30]:
+            bst.insert(v)
+        # Before: root=10, 10.right=20, 20.right=30
+        new_root = bst.rotate_left(bst.root)
+        # After:  root=20, 20.left=10, 20.right=30
+        assert new_root.val == 20
+        assert new_root.parent is None       # was root, stays root
+        assert new_root.left.val == 10
+        assert new_root.left.parent is new_root   # 10's parent is now 20
+        assert new_root.right.val == 30
+        assert new_root.right.parent is new_root   # 30's parent is still 20
+
+    def test_parent_references_after_rotate_right(self):
+        """Parent pointers are updated correctly after rotate_right."""
+        bst = BST()
+        for v in [30, 20, 10]:
+            bst.insert(v)
+        new_root = bst.rotate_right(bst.root)
+        assert new_root.val == 20
+        assert new_root.parent is None
+        assert new_root.left.val == 10
+        assert new_root.left.parent is new_root
+        assert new_root.right.val == 30
+        assert new_root.right.parent is new_root
+
 
 # ============================================================
 # Height Updates
