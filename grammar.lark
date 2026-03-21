@@ -1,0 +1,77 @@
+// ==========================================
+// DSL Grammar for Tree Balancing
+// ==========================================
+
+start: (rule | action)+
+
+rule: "IF" condition "THEN" action_block
+
+// ------------------------------------------
+// Conditions
+// ------------------------------------------
+condition: comparison
+         | condition "AND" condition -> and_expr
+         | condition "OR" condition  -> or_expr
+         | "NOT" condition           -> not_expr
+         | "(" condition ")"
+
+comparison: expression COMPARATOR expression
+
+// ------------------------------------------
+// Expressions (with arithmetic)
+// ------------------------------------------
+expression: expression "+" term  -> add_expr
+          | expression "-" term  -> sub_expr
+          | term
+
+term: SIGNED_NUMBER              -> number
+    | BALANCE_KW                 -> get_balance
+    | HEIGHT_KW                  -> get_height
+    | LEFT_BAL_KW                -> get_left_balance
+    | RIGHT_BAL_KW               -> get_right_balance
+    | COLOUR_KW                  -> get_colour
+    | PARENT_COLOUR_KW           -> get_parent_colour
+    | UNCLE_COLOUR_KW            -> get_uncle_colour
+    | ESCAPED_STRING             -> string_literal
+    | "(" expression ")"
+
+// ------------------------------------------
+// Actions
+// ------------------------------------------
+action_block: "{" action+ "}"
+            | action
+
+action: ROT_LEFT_KW        -> rotate_left
+      | ROT_RIGHT_KW       -> rotate_right
+      | ROT_LEFT_RIGHT_KW  -> rotate_left_right
+      | ROT_RIGHT_LEFT_KW  -> rotate_right_left
+      | "SET_COLOUR" string -> set_colour
+      | "INSERT" SIGNED_NUMBER -> insert_cmd
+      | "DELETE" SIGNED_NUMBER -> delete_cmd
+
+// ------------------------------------------
+// Tokens
+// ------------------------------------------
+BALANCE_KW: "balance_factor"
+HEIGHT_KW: "height"
+LEFT_BAL_KW: "left_child_balance"
+RIGHT_BAL_KW: "right_child_balance"
+COLOUR_KW: "node_colour"
+PARENT_COLOUR_KW: "parent_colour"
+UNCLE_COLOUR_KW: "uncle_colour"
+
+ROT_LEFT_KW: "ROTATE_LEFT"
+ROT_RIGHT_KW: "ROTATE_RIGHT"
+ROT_LEFT_RIGHT_KW: "ROTATE_LEFT_RIGHT"
+ROT_RIGHT_LEFT_KW: "ROTATE_RIGHT_LEFT"
+
+COMPARATOR: ">=" | "<=" | ">" | "<" | "==" | "!="
+string: ESCAPED_STRING
+
+COMMENT: /#[^\n]*/
+
+%import common.SIGNED_NUMBER
+%import common.ESCAPED_STRING
+%import common.WS
+%ignore WS
+%ignore COMMENT

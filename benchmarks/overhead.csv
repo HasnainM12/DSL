@@ -1,0 +1,3 @@
+method,n,elapsed_ms
+native_python,1000,251.91
+dsl_driven,1000,313265.76
