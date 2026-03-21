@@ -218,7 +218,12 @@ class DSLVisualizerApp:
 
         self._on_step_forward()
         self.control_panel.clear_insert_entry()
-        self._status(f"Deleting {val}…")
+        
+        script = self.editor_panel.get_script()
+        if "COLOUR" in script.upper():
+            self._status(f"Warning: Deleting nodes with a Red-Black script loaded may corrupt invariants! Deleting {val}…")
+        else:
+            self._status(f"Deleting {val}…")
 
     def _on_clear_tree(self):
         """Queue a tree clear and animate."""
@@ -293,15 +298,19 @@ class DSLVisualizerApp:
                     sim_bst.delete(val)
                 sim_root = sim_bst.root
 
-            steps = 0
-            while True:
-                sim_root, changed = self.interpreter.balance_step(sim_root, parsed_tree)
-                if not changed:
-                    break
-                steps += 1
-                if steps > 50:
-                    self._status("Status: Stopped after 50 steps (possible infinite loop).")
-                    break
+            try:
+                steps = 0
+                while True:
+                    sim_root, changed = self.interpreter.balance_step(sim_root, parsed_tree)
+                    if not changed:
+                        break
+                    steps += 1
+                    if steps > 50:
+                        self._status("Status: Stopped after 50 steps (possible infinite loop).")
+                        break
+            except Exception as exc:
+                self._status(str(exc))
+                return
 
             for _ in range(steps):
                 self.animation_queue.append(

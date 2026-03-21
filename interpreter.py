@@ -200,6 +200,8 @@ class DSLInterpreter:
 
         with open(grammar_path, "r") as f:
             self.parser = Lark(f.read(), start="start", parser="lalr")
+        
+        self.rotations = 0
 
     def apply_rules(self, node, dsl_input):
         if not node:
@@ -212,13 +214,15 @@ class DSLInterpreter:
             try:
                 parsed_tree = self.parser.parse(dsl_input)
             except Exception as e:
-                print(f"Syntax Error in DSL: {e}")
-                return node
+                raise RuntimeError(f"Syntax Error in DSL: {e}")
 
         # Evaluate the AST with this node's context
         # Deep-copy because Lark's transform mutates the tree in place
         evaluator = BalancingLogic(node)
-        actions = evaluator.transform(copy.deepcopy(parsed_tree))
+        try:
+            actions = evaluator.transform(copy.deepcopy(parsed_tree))
+        except Exception as e:
+            raise RuntimeError(f"Runtime Error: {str(e)}")
 
         # 3. Execute
         new_root = node
@@ -226,12 +230,16 @@ class DSLInterpreter:
 
         for action in actions:
             if action == "ROTATE_LEFT":
+                self.rotations += 1
                 new_root = tree_ops.rotate_left(new_root)
             elif action == "ROTATE_RIGHT":
+                self.rotations += 1
                 new_root = tree_ops.rotate_right(new_root)
             elif action == "ROTATE_LEFT_RIGHT":
+                self.rotations += 2
                 new_root = tree_ops.rotate_left_right(new_root)
             elif action == "ROTATE_RIGHT_LEFT":
+                self.rotations += 2
                 new_root = tree_ops.rotate_right_left(new_root)
             elif isinstance(action, tuple) and action[0] == "SET_COLOUR":
                 new_root.colour = action[1]
@@ -309,8 +317,7 @@ class DSLInterpreter:
         try:
             parsed_tree = self.parser.parse(dsl_script)
         except Exception as e:
-            print(f"Syntax Error in DSL: {e}")
-            return node
+            raise RuntimeError(f"Syntax Error in DSL: {e}")
 
         return self._balance_recursive(node, parsed_tree)
 

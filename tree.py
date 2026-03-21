@@ -11,6 +11,7 @@ class TreeNode:
 class BST:
     def __init__(self):
         self.root = None
+        self.rotations = 0
 
     # ==========================================
     # Core Operations
@@ -121,6 +122,8 @@ class BST:
         if not z or not z.right:
             return z  # Cannot rotate
 
+        self.rotations += 1
+
         y = z.right
         T2 = y.left
 
@@ -148,6 +151,8 @@ class BST:
         """
         if not z or not z.left:
             return z # Cannot rotate
+
+        self.rotations += 1
 
         y = z.left
         T3 = y.right
