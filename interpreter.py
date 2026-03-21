@@ -203,8 +203,10 @@ class DSLInterpreter:
         
         self.rotations = 0
 
-    def apply_rules(self, node, dsl_input):
+    def apply_rules(self, node, dsl_input, return_flag=False):
         if not node:
+            if return_flag:
+                return None, False
             return None
 
         # Accept either a raw DSL string or a pre-parsed Lark Tree
@@ -254,6 +256,8 @@ class DSLInterpreter:
                 if new_root.parent and new_root.parent.parent:
                     new_root.parent.parent.colour = action[1]
         
+        if return_flag:
+            return new_root, len(actions) > 0
         return new_root
 
     def balance_step(self, node, parsed_tree):
@@ -292,8 +296,8 @@ class DSLInterpreter:
         )
 
         # Try to apply rules at this node
-        new_root = self.apply_rules(node, parsed_tree)
-        if new_root is not node:
+        new_root, triggered = self.apply_rules(node, parsed_tree, return_flag=True)
+        if triggered:
             return new_root, True
 
         return node, False

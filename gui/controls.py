@@ -34,7 +34,7 @@ class ControlPanel:
         self._add_separator(outer)
         self._build_script_controls(outer, on_run_script, on_step_forward, on_step_back)
         self._add_separator(outer)
-        self._build_tree_management(outer, on_clear, on_reset)
+        self._build_tree_management(outer, on_clear, on_reset, on_export)
         self._build_status_bar(outer)
 
         parent.add(outer, minsize=120)
@@ -173,7 +173,7 @@ class ControlPanel:
 
     # ---- Tree Management ----
 
-    def _build_tree_management(self, outer, on_clear, on_reset):
+    def _build_tree_management(self, outer, on_clear, on_reset, on_export):
         self._section_header(outer, "🔧  Tree Management")
 
         mgmt_ops = ctk.CTkFrame(

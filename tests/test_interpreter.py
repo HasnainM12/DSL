@@ -135,21 +135,21 @@ IF balance_factor < -1 THEN ROTATE_LEFT
 # Error Handling
 # ============================================================
 class TestErrorHandling:
-    def test_invalid_syntax_apply_rules_returns_node(self, interpreter):
-        """apply_rules with garbage DSL returns the original node unchanged."""
+    def test_invalid_syntax_apply_rules_raises(self, interpreter):
+        """apply_rules with garbage DSL raises RuntimeError."""
         bst = BST()
         bst.insert(50)
         original = bst.root
-        result = interpreter.apply_rules(original, "GIBBERISH NONSENSE")
-        assert result is original
+        with pytest.raises(RuntimeError):
+            interpreter.apply_rules(original, "GIBBERISH NONSENSE")
 
-    def test_invalid_syntax_balance_tree_returns_node(self, interpreter):
-        """balance_tree with garbage DSL returns the original node unchanged."""
+    def test_invalid_syntax_balance_tree_raises(self, interpreter):
+        """balance_tree with garbage DSL raises RuntimeError."""
         bst = BST()
         bst.insert(50)
         original = bst.root
-        result = interpreter.balance_tree(original, "NOT VALID DSL")
-        assert result is original
+        with pytest.raises(RuntimeError):
+            interpreter.balance_tree(original, "NOT VALID DSL")
 
     def test_execute_script_raises_on_bad_syntax(self, interpreter):
         """execute_script propagates the parse error for invalid DSL."""
