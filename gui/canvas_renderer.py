@@ -4,6 +4,7 @@ Uses tk.Canvas directly (CustomTkinter has no canvas equivalent).
 """
 
 import tkinter as tk
+from PIL import Image, ImageDraw, ImageTk
 
 from gui.constants import (COLOURS, NODE_RADIUS, Y_START, Y_SPACING, FONT_NODE,
                            FONT_BODY, HIGHLIGHT_DURATION_MS)
@@ -39,6 +40,60 @@ class CanvasRenderer:
 
         # Track canvas size so grid ovals are only redrawn on resize
         self._grid_size = (0, 0)
+        
+        # Keep references to PIL PhotoImages so they aren't garbage collected
+        self._edge_images = []
+
+        # Generate smooth PIL images for nodes
+        self._generate_node_images()
+
+    def _generate_node_images(self):
+        """Create super-sampled AA circular images to replace jagged Tkinter ovals."""
+        self.img_default = self._create_aa_circle(
+            NODE_RADIUS, COLOURS["node_fill"], 
+            COLOURS["node_outline"], COLOURS["node_shadow"]
+        )
+        self.img_red = self._create_aa_circle(
+            NODE_RADIUS, COLOURS["node_red_fill"], 
+            COLOURS["node_red_outline"], COLOURS["node_shadow"]
+        )
+        self.img_highlight = self._create_aa_circle(
+            NODE_RADIUS, COLOURS["node_delete_highlight"], 
+            COLOURS["node_delete_highlight"], COLOURS["node_shadow"]
+        )
+
+    def _create_aa_circle(self, radius, fill_color, outline_color, shadow_color):
+        """Super-sample (4x) a circle with a drop shadow, then downscale for perfect AA."""
+        scale = 4
+        r = radius * scale
+        pad = 8 * scale  # padding for shadow blur/offset
+        size = r * 2 + pad * 2
+        
+        img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        shadow_offset_x = 0
+        shadow_offset_y = 4 * scale
+        
+        # Draw Shadow
+        shadow_box = [pad + shadow_offset_x, pad + shadow_offset_y, 
+                      pad + r * 2 + shadow_offset_x, pad + r * 2 + shadow_offset_y]
+        draw.ellipse(shadow_box, fill=shadow_color)
+        
+        # Draw Outline (bottom layer)
+        box = [pad, pad, pad + r * 2, pad + r * 2]
+        draw.ellipse(box, fill=outline_color)
+        
+        # Draw Fill (top layer) - simulated border radius
+        border_w = 3 * scale
+        inner_box = [pad + border_w, pad + border_w, 
+                     pad + r * 2 - border_w, pad + r * 2 - border_w]
+        draw.ellipse(inner_box, fill=fill_color)
+        
+        # Downscale
+        final_size = size // scale
+        img = img.resize((final_size, final_size), Image.Resampling.LANCZOS)
+        return ImageTk.PhotoImage(img)
 
     # ---- background grid ----
 
@@ -109,6 +164,7 @@ class CanvasRenderer:
         If *highlight_val* is set, that node is drawn with a red fill.
         """
         self.canvas.delete("tree")
+        self._edge_images = []
 
         # Background dot-grid
         self._draw_dot_grid()
@@ -123,40 +179,27 @@ class CanvasRenderer:
         text_colour   = COLOURS["node_text"]
         hl_fill       = COLOURS["node_delete_highlight"]
 
-        # Pass 1: edges
+        # Pass 1: edges (Modern S-curves with Faux Anti-Aliasing)
         for node, (px, py) in positions.items():
             if node.left and node.left in positions:
                 cx, cy = positions[node.left]
-                self.canvas.create_line(
-                    px, py, cx, cy,
-                    fill=edge_colour, width=2, smooth=True,
-                    tags="tree",
-                )
+                self._draw_aa_edge(px, py, cx, cy)
             if node.right and node.right in positions:
                 cx, cy = positions[node.right]
-                self.canvas.create_line(
-                    px, py, cx, cy,
-                    fill=edge_colour, width=2, smooth=True,
-                    tags="tree",
-                )
+                self._draw_aa_edge(px, py, cx, cy)
 
-        # Pass 2: node circles
+        # Pass 2: perfectly rounded node sprites
         for node, (nx, ny) in positions.items():
             is_highlighted = (highlight_val is not None and node.val == highlight_val)
             if is_highlighted:
-                fill = hl_fill
-                outline = hl_fill
+                img = self.img_highlight
             elif getattr(node, 'colour', None) == "RED":
-                fill = COLOURS["node_red_fill"]
-                outline = COLOURS["node_red_outline"]
+                img = self.img_red
             else:
-                fill = COLOURS["node_fill"]
-                outline = node_outline
-            self.canvas.create_oval(
-                nx - r, ny - r, nx + r, ny + r,
-                fill=fill, outline=outline, width=3,
-                tags="tree",
-            )
+                img = self.img_default
+                
+            # Place the pre-rendered AA image
+            self.canvas.create_image(nx, ny, image=img, tags="tree")
 
         # Pass 3: labels
         for node, (nx, ny) in positions.items():
@@ -172,6 +215,54 @@ class CanvasRenderer:
         self.draw_at_positions(positions, highlight_val=node_val)
         self._root.after(HIGHLIGHT_DURATION_MS, callback)
 
+    def _draw_aa_edge(self, px, py, cx, cy):
+        """Draw perfect anti-aliased S-curves via super-sampled PIL images."""
+        scale = 3  # 3x supersampling is enough for great AA and fast performance
+        
+        # Calculate bounding box
+        min_x, max_x = min(px, cx), max(px, cx)
+        min_y, max_y = min(py, cy), max(py, cy)
+        
+        pad = 6  # padding for line width/shadows
+        width = int(max_x - min_x + 2 * pad)
+        height = int(max_y - min_y + 2 * pad)
+        
+        if width <= 0 or height <= 0: return
+
+        img = Image.new('RGBA', (width * scale, height * scale), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+
+        # Local coordinates mapped to the image
+        loc_px = (px - min_x + pad) * scale
+        loc_py = (py - min_y + pad) * scale
+        loc_cx = (cx - min_x + pad) * scale
+        loc_cy = (cy - min_y + pad) * scale
+
+        loc_cy_mid = (loc_py + loc_cy) / 2
+
+        # Generate S-curve points (Cubic Bezier)
+        steps = max(15, int(abs(py - cy) / 4)) # Adaptive steps based on length
+        curve_points = []
+        for i in range(steps + 1):
+            t = i / steps
+            u = 1 - t
+            # P0=(loc_px, loc_py), P1=(loc_px, loc_cy_mid), P2=(loc_cx, loc_cy_mid), P3=(loc_cx, loc_cy)
+            x = (u**3)*loc_px + 3*(u**2)*t*loc_px + 3*u*(t**2)*loc_cx + (t**3)*loc_cx
+            y = (u**3)*loc_py + 3*(u**2)*t*loc_cy_mid + 3*u*(t**2)*loc_cy_mid + (t**3)*loc_cy
+            curve_points.append((x, y))
+
+        # Draw the main line. Add a slightly darker shadow line underneath for depth.
+        draw.line(curve_points, fill="#0f172a", width=6 * scale, joint='curve') # shadow/border (Slate 900)
+        draw.line(curve_points, fill=COLOURS["edge_colour"], width=2 * scale, joint='curve') # core
+        
+        # Downscale
+        img = img.resize((width, height), Image.Resampling.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+        self._edge_images.append(photo)
+
+        # Place on canvas
+        self.canvas.create_image(min_x - pad, min_y - pad, image=photo, anchor="nw", tags="tree")
+
     # ---- animation ----
 
     def animate_frame(self, start, targets, frame, total_frames,
@@ -183,9 +274,11 @@ class CanvasRenderer:
         Newly-inserted nodes (in targets but not start) animate from
         their parent's start position so they appear to "drop in".
         """
-        # Ease-in-out (smoothstep): slow → fast → slow
+        # Back Ease Out (milder overshoot/spring effect)
         t = frame / total_frames
-        t = t * t * (3.0 - 2.0 * t)
+        s = 0.8
+        t -= 1.0
+        t = t * t * ((s + 1) * t + s) + 1.0
 
         interpolated = {}
         for node, (tx, ty) in targets.items():

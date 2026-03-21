@@ -8,71 +8,72 @@ Deep navy/slate dark theme — WCAG 2.1 AA compliant contrast ratios noted.
 # ==========================================
 COLOURS = {
     # Backgrounds (deep → surface → card)
-    "bg_dark":       "#0D1117",   # Deepest — editor, canvas
-    "bg_medium":     "#0D1117",   # Canvas background
-    "bg_surface":    "#161B22",   # Elevated surface — left panel
-    "bg_panel":      "#161B22",   # Control panel background
-    "bg_card":       "#21262D",   # Card containers (elevated)
-    "bg_gutter":     "#0D1117",   # Line-number gutter
+    "bg_dark":       "#020617",   # Sleek Slate 950 (Extremely dark)
+    "bg_medium":     "#020617",   # Canvas background
+    "bg_surface":    "#0f172a",   # Elevated surface — left panel (Slate 900)
+    "bg_panel":      "#0f172a",   # Control panel background
+    "bg_card":       "#1e293b",   # Card containers (elevated - Slate 800)
+    "bg_gutter":     "#020617",   # Line-number gutter
 
     # Foregrounds
-    "fg_text":       "#E6EDF3",   # Primary text       (vs #0D1117 → 15.4:1)
-    "fg_gutter":     "#7D8590",   # Gutter numbers     (vs #0D1117 →  4.7:1)
-    "fg_placeholder":"#6A9955",   # Placeholder hint
+    "fg_text":       "#f8fafc",   # Primary text (Slate 50)
+    "fg_gutter":     "#64748b",   # Gutter numbers (Slate 500)
+    "fg_placeholder":"#94a3b8",   # Placeholder hint (Slate 400)
 
     # Interactive — Primary (Run / execute actions)
-    "btn_primary":      "#2EA043",   # Green primary button
-    "btn_primary_hover":"#3FB950",   # Green hover
-    "btn_primary_active":"#238636",  # Green press
+    "btn_primary":      "#10b981",   # Modern Emerald 500
+    "btn_primary_hover":"#34d399",   # Emerald 400
+    "btn_primary_active":"#059669",  # Emerald 600
 
     # Interactive — Secondary (Insert / Step / default)
-    "btn_bg":        "#2188FF",   # Blue button
-    "btn_fg":        "#FFFFFF",
-    "btn_hover":     "#58A6FF",   # Blue hover
-    "btn_active":    "#1A7CF4",   # Blue press
+    "btn_bg":        "#3b82f6",   # Vibrant Blue 500
+    "btn_fg":        "#ffffff",
+    "btn_hover":     "#60a5fa",   # Blue 400
+    "btn_active":    "#2563eb",   # Blue 600
 
     # Interactive — Danger (Clear / Delete)
-    "btn_danger":       "#DA3633",   # Red danger button
-    "btn_danger_hover": "#F85149",   # Red hover
-    "btn_danger_active":"#B62324",   # Red press
+    "btn_danger":       "#f43f5e",   # Rose 500 (Vibrant Danger)
+    "btn_danger_hover": "#fb7185",   # Rose 400
+    "btn_danger_active":"#e11d48",   # Rose 600
 
     # Interactive — Neutral (Reset / Step Back)
-    "btn_neutral":       "#30363D",  # Slate neutral button
-    "btn_neutral_hover": "#484F58",  # Slate hover
-    "btn_neutral_active":"#21262D",  # Slate press
+    "btn_neutral":       "#475569",  # Slate 600
+    "btn_neutral_hover": "#64748b",  # Slate 500
+    "btn_neutral_active":"#334155",  # Slate 700
 
     # Accent / focus
-    "focus_ring":    "#58A6FF",   # Focus indicator (brighter blue)
-    "status_bg":     "#1F6FEB",   # Status bar bg
-    "status_fg":     "#FFFFFF",
+    "focus_ring":    "#38bdf8",   # Sky 400 (glow)
+    "status_bg":     "#2563eb",   # Blue 600
+    "status_fg":     "#ffffff",
 
     # Borders & separators
-    "border":        "#30363D",
-    "separator":     "#30363D",   # Section dividers
-    "entry_bg":      "#010409",   # Deepest entry for contrast
-    "entry_fg":      "#E6EDF3",
+    "border":        "#0f172a",   # Slate 900
+    "separator":     "#1e293b",   # Slate 800
+    "entry_bg":      "#000000",   # Deepest input bg (True Black)
+    "entry_fg":      "#f8fafc",
 
     # Canvas — nodes
-    "node_fill":        "#1F6FEB",   # Node circle fill
-    "node_inner":       "#388BFD",   # Lighter inner for gradient effect
-    "node_outline":     "#58A6FF",   # Node outline accent
-    "node_shadow":      "#010409",   # Shadow behind node
-    "node_glow":        "#1F6FEB",   # Glow circle colour
-    "node_text":        "#FFFFFF",   # Node label colour
-    "edge_colour":      "#8B949E",   # Softer edge lines
+    "node_fill":        "#1e293b",   # Sleek Slate 800 for default/black nodes
+    "node_inner":       "#334155",   # Lighter inner
+    "node_outline":     "#64748b",   # Slate 500 outline
+    "node_shadow":      "#020617",   # Deep shadow
+    "node_glow":        "#94a3b8",   # Soft white/slate glow
+    "node_text":        "#f8fafc",   # Crisp white text
+    "edge_colour":      "#475569",   # Slate 600 for thick edges
 
     # Canvas — background grid
-    "grid_dot":         "#21262D",   # Dot-grid colour (matches card tone)
+    "grid_dot":         "#1e293b",   # Slate 800
 
     # Canvas — deletion highlight
-    "node_delete_highlight": "#F85149",  # Red flash for node being deleted
+    "node_delete_highlight": "#f43f5e",  # Rose 500
 
     # Canvas — Red-Black node colours
-    "node_red_fill":    "#8B0000",
-    "node_red_outline": "#F85149",
+    "node_red_fill":    "#e11d48",   # Rose 600 (vibrant modern red)
+    "node_red_outline": "#fb7185",   # Rose 400
+    "node_red_glow":    "#f43f5e",   # Rose 500 glow
 
     # Section header accent
-    "header_accent":    "#58A6FF",   # Accent for section titles
+    "header_accent":    "#38bdf8",   # Sky 400
 }
 
 # ==========================================
@@ -84,7 +85,7 @@ Y_SPACING         = 80        # vertical gap between depth levels
 ANIM_FRAMES       = 15        # number of interpolation frames
 ANIM_DELAY_MS     = 20        # milliseconds between frames
 HIGHLIGHT_DURATION_MS = 400   # how long the deletion highlight flash lasts
-CARD_CORNER_RADIUS = 12       # rounded corners for card containers
+CARD_CORNER_RADIUS = 16       # fuller rounded corners for modern card containers
 SECTION_PAD_X     = 12        # horizontal padding inside sections
 SECTION_PAD_Y     = 8         # vertical padding inside sections
 
