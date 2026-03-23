@@ -1,24 +1,21 @@
 """
-DSLVisualizerApp — main orchestrator.
-Wires together EditorPanel, CanvasRenderer, and ControlPanel.
+DSLVisualizerApp — main orchestrator (PyQt6 version).
+
+Replaces tkinter / customtkinter with QMainWindow + QSplitter.
+All root.after() calls are replaced with QTimer.singleShot().
 """
 
 import copy
-import tkinter as tk
-import customtkinter as ctk
-import platform
-import ctypes
-from lark.exceptions import UnexpectedInput
+import csv
 
-# Prevent Windows from bitmap-scaling the window (which causes pixelation)
-if platform.system() == "Windows":
-    try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    except Exception:
-        try:
-            ctypes.windll.user32.SetProcessDPIAware()
-        except Exception:
-            pass
+from PyQt6.QtWidgets import (
+    QMainWindow, QWidget, QSplitter, QVBoxLayout,
+    QFileDialog, QStatusBar,
+)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QShortcut, QKeySequence
+
+from lark.exceptions import UnexpectedInput
 
 from tree import BST
 from interpreter import DSLInterpreter
@@ -30,102 +27,158 @@ from gui.controls import ControlPanel
 from gui.ast_panel import ASTPanel
 
 
-class DSLVisualizerApp:
-    """CustomTkinter-based DSL Tree Visualiser with animated BST rendering."""
+_STYLESHEET = f"""
+QMainWindow, QWidget {{
+    background-color: {COLOURS["bg_dark"]};
+    color: {COLOURS["fg_text"]};
+    font-family: "Inter", sans-serif;
+}}
+QSplitter::handle:horizontal {{
+    background: {COLOURS["border"]};
+    width: 3px;
+}}
+QSplitter::handle:vertical {{
+    background: {COLOURS["border"]};
+    height: 3px;
+}}
+QScrollBar:vertical {{
+    background: {COLOURS["bg_dark"]};
+    width: 8px;
+    border-radius: 4px;
+}}
+QScrollBar::handle:vertical {{
+    background: {COLOURS["border"]};
+    border-radius: 4px;
+    min-height: 20px;
+}}
+QScrollBar::handle:vertical:hover {{ background: {COLOURS["fg_gutter"]}; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+QScrollBar:horizontal {{
+    background: {COLOURS["bg_dark"]};
+    height: 8px;
+    border-radius: 4px;
+}}
+QScrollBar::handle:horizontal {{
+    background: {COLOURS["border"]};
+    border-radius: 4px;
+    min-width: 20px;
+}}
+QScrollBar::handle:horizontal:hover {{ background: {COLOURS["fg_gutter"]}; }}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}
+QToolTip {{
+    background-color: {COLOURS["bg_card"]};
+    color: {COLOURS["fg_text"]};
+    border: 1px solid {COLOURS["border"]};
+    padding: 4px 8px;
+    font-family: "Inter", sans-serif;
+    font-size: 12px;
+}}
+QStatusBar {{
+    background-color: {COLOURS["status_bg"]};
+    color: {COLOURS["status_fg"]};
+    font-family: "Inter", sans-serif;
+    font-size: 13px;
+    padding: 2px 10px;
+}}
+"""
+
+
+class DSLVisualizerApp(QMainWindow):
+    """CustomTkinter → PyQt6 rewrite of the DSL Tree Visualiser."""
 
     def __init__(self):
-        self.root = ctk.CTk()
-        self._configure_root()
+        super().__init__()
+        self.setWindowTitle("DSL Tree Visualizer")
+        self.resize(1200, 800)
+        self.setMinimumSize(800, 500)
+        self.setStyleSheet(_STYLESHEET)
 
-        # --- Data model ---
+        # ── data model ───────────────────────────────────────────────────
         self.bst = BST()
         for val in [50, 25, 75, 10, 30, 60, 80]:
             self.bst.insert(val)
 
         self.interpreter = DSLInterpreter()
 
-        # --- Animation state ---
-        self.animation_queue = []
-        self._current_positions = {}
+        # ── animation state ───────────────────────────────────────────────
+        self.animation_queue: list = []
+        self._current_positions: dict = {}
         self._animating = False
         self._anim_delay = ANIM_DELAY_MS
 
-        # --- Undo history ---
-        self._history_stack = []  # list of deep-copied BST roots
+        # ── undo history ──────────────────────────────────────────────────
+        self._history_stack: list = []
 
-        # --- Step counter ---
+        # ── step counter ──────────────────────────────────────────────────
         self._total_steps = 0
-        self._steps_done = 0
+        self._steps_done  = 0
 
-        # --- Build UI ---
         self._build_layout()
         self._bind_shortcuts()
 
-    # ---- root window ----
+        # Defer first draw until the window has been shown and sized.
+        QTimer.singleShot(0, self._initial_draw)
 
-    def _configure_root(self):
-        self.root.title("DSL Tree Visualizer")
-        self.root.geometry("1200x800")
-        self.root.minsize(800, 500)
-
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
-
-        # Allow the root grid cell to stretch with window resize
-        self.root.rowconfigure(0, weight=1)
-        self.root.columnconfigure(0, weight=1)
-
-    # ---- layout ----
+    # ── layout ──────────────────────────────────────────────────────────
 
     def _build_layout(self):
-        # Outer horizontal PanedWindow: left panel | canvas
-        self.h_pane = tk.PanedWindow(
-            self.root, orient=tk.HORIZONTAL,
-            bg=COLOURS["border"], sashwidth=3, sashrelief=tk.FLAT,
-        )
-        self.h_pane.grid(row=0, column=0, sticky="nsew")
+        central = QWidget()
+        self.setCentralWidget(central)
 
-        # Left: vertical PanedWindow (editor on top, controls on bottom)
-        self.v_pane = tk.PanedWindow(
-            self.h_pane, orient=tk.VERTICAL,
-            bg=COLOURS["border"], sashwidth=3, sashrelief=tk.FLAT,
-        )
+        root_layout = QVBoxLayout(central)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        # Build each zone
-        self.editor_panel = EditorPanel(self.v_pane)
-        self.ast_panel = ASTPanel(self.v_pane)
+        # Horizontal: left panel | canvas
+        h_split = QSplitter(Qt.Orientation.Horizontal)
+
+        # Vertical left panel: editor | AST | controls
+        v_split = QSplitter(Qt.Orientation.Vertical)
+        v_split.setMinimumWidth(320)
+
+        self.editor_panel  = EditorPanel(v_split)
+        self.ast_panel     = ASTPanel(v_split)
         self.control_panel = ControlPanel(
-            self.v_pane,
-            on_insert=self._on_insert_node,
-            on_delete=self._on_delete_node,
-            on_run_script=self._on_run_script,
-            on_step_forward=self._on_step_forward,
-            on_step_back=self._on_step_back,
-            on_clear=self._on_clear_tree,
-            on_reset=self._on_reset_view,
-            on_speed_change=self._on_speed_change,
-            on_export=self._on_export,
+            v_split,
+            on_insert       = self._on_insert_node,
+            on_delete       = self._on_delete_node,
+            on_run_script   = self._on_run_script,
+            on_step_forward = self._on_step_forward,
+            on_step_back    = self._on_step_back,
+            on_clear        = self._on_clear_tree,
+            on_reset        = self._on_reset_view,
+            on_speed_change = self._on_speed_change,
+            on_export       = self._on_export,
         )
-        self.renderer = CanvasRenderer(self.h_pane, self.root)
+        v_split.setSizes([320, 120, 260])
+        v_split.addWidget(self.editor_panel)
+        v_split.addWidget(self.ast_panel)
+        v_split.addWidget(self.control_panel)
 
-        # Redraw tree whenever canvas is resized
-        self.renderer.canvas.bind("<Configure>", self._on_canvas_resize)
+        self.renderer = CanvasRenderer(on_resize=self._on_canvas_resize)
 
-        # Add panes with size hints
-        self.h_pane.add(self.v_pane, minsize=320, width=460)
-        self.h_pane.add(self.renderer.canvas_frame, minsize=300)
+        h_split.addWidget(v_split)
+        h_split.addWidget(self.renderer)
+        h_split.setSizes([460, 740])
+
+        root_layout.addWidget(h_split)
+
+        # Status bar
+        self.statusBar().showMessage("Ready")
 
         # Wire real-time validation
-        self.editor_panel._on_validate_callback = self._validate_script
+        self.editor_panel.set_validate_callback(self._validate_script)
 
-    # ---- event handlers ----
+    def _initial_draw(self):
+        self.renderer.draw_tree(self.bst.root, self._current_positions)
+        self.renderer.draw_stats(self.bst.root)
 
-    def _on_canvas_resize(self, event=None):
-        """Redraw the tree when the canvas is resized."""
-        self.renderer.draw_tree(self.bst.root, self._current_positions, event)
+    def _on_canvas_resize(self):
+        self.renderer.draw_tree(self.bst.root, self._current_positions)
+
+    # ── event handlers ───────────────────────────────────────────────────
 
     def _on_step_forward(self):
-        """Pop the next action from the queue, apply it, and animate."""
         if self._animating:
             return
         if not self.animation_queue:
@@ -134,7 +187,7 @@ class DSLVisualizerApp:
 
         action = self.animation_queue.pop(0)
 
-        # --- Handle highlight actions (deletion flash) ---
+        # Highlight (deletion flash)
         if isinstance(action, dict) and action.get("type") == "highlight":
             self._animating = True
             self.renderer.highlight_node(
@@ -147,11 +200,11 @@ class DSLVisualizerApp:
             )
             return
 
-        # Save undo snapshot before mutating
+        # Snapshot for undo
         self._history_stack.append(copy.deepcopy(self.bst.root))
 
         start_positions = dict(self._current_positions)
-        action()  # mutate BST
+        action()                                              # mutate BST
 
         targets = self.renderer.capture_target_positions(self.bst.root)
         self._animating = True
@@ -163,18 +216,18 @@ class DSLVisualizerApp:
         )
 
         self._steps_done += 1
-        self._status(f"Step {self._steps_done}/{self._total_steps} — {self._describe_action(action)}")
+        self._status(
+            f"Step {self._steps_done}/{self._total_steps} — {self._describe_action(action)}"
+        )
         self.renderer.draw_stats(self.bst.root)
 
     def _on_step_back(self):
-        """Undo the last mutation by restoring a BST snapshot."""
         if self._animating:
             return
         if not self._history_stack:
             self._status("Status: Nothing to undo.")
             return
 
-        # Restore previous BST root
         start_positions = dict(self._current_positions)
         self.bst.root = self._history_stack.pop()
 
@@ -190,7 +243,6 @@ class DSLVisualizerApp:
         self.renderer.draw_stats(self.bst.root)
 
     def _on_insert_node(self):
-        """Validate entry, queue an insert, and kick off animation."""
         raw = self.control_panel.get_insert_value()
         try:
             val = int(raw)
@@ -201,8 +253,7 @@ class DSLVisualizerApp:
             self._status(f"Status: Node {val} already exists.")
             return
 
-        self.animation_queue.clear()  # Flush stale animations
-
+        self.animation_queue.clear()
         self.animation_queue.append(lambda v=val: self.bst.insert(v))
         self._on_step_forward()
         self.control_panel.clear_insert_entry()
@@ -210,7 +261,6 @@ class DSLVisualizerApp:
         self.renderer.draw_stats(self.bst.root)
 
     def _on_delete_node(self):
-        """Validate entry, queue a highlight + delete, and kick off animation."""
         raw = self.control_panel.get_insert_value()
         try:
             val = int(raw)
@@ -222,31 +272,27 @@ class DSLVisualizerApp:
             return
 
         self.animation_queue.clear()
-
-        # Phase 1: flash the node red
         self.animation_queue.append({"type": "highlight", "node_val": val})
-        # Phase 2: actually remove it
         self.animation_queue.append(lambda v=val: self.bst.delete(v))
-
         self._on_step_forward()
         self.control_panel.clear_insert_entry()
-        
+
         script = self.editor_panel.get_script()
         if "COLOUR" in script.upper():
-            self._status(f"Warning: Deleting nodes with a Red-Black script loaded may corrupt invariants! Deleting {val}…")
+            self._status(
+                f"Warning: Deleting nodes with a Red-Black script may corrupt invariants! Deleting {val}…"
+            )
         else:
             self._status(f"Deleting {val}…")
 
     def _on_clear_tree(self):
-        """Queue a tree clear and animate."""
-        self.animation_queue.clear()  # Flush stale animations
-        self.animation_queue.append(lambda: setattr(self.bst, 'root', None))
+        self.animation_queue.clear()
+        self.animation_queue.append(lambda: setattr(self.bst, "root", None))
         self._on_step_forward()
         self._status("Tree cleared.")
         self.renderer.draw_stats(self.bst.root)
 
     def _on_run_script(self):
-        """Parse the editor DSL, simulate to count steps, then queue them."""
         self.editor_panel.clear_error()
 
         script = self.editor_panel.get_script()
@@ -263,25 +309,19 @@ class DSLVisualizerApp:
             self.ast_panel.clear()
             return
 
-        # Show AST in the viewer panel
+        # Show AST
         self.ast_panel.update(parsed_tree)
 
-        # Detect IF…THEN rules by walking the AST directly
-        # (execute_script evaluates against None, so conditions are always
-        #  False and no rotation strings are produced for rule-only scripts)
         has_balance_rules = any(
-            sub.data == "rule"
-            for sub in parsed_tree.iter_subtrees()
+            sub.data == "rule" for sub in parsed_tree.iter_subtrees()
         )
 
-        # Execute script to get flat action list (INSERT/DELETE tuples)
         try:
             actions = self.interpreter.execute_script(script)
         except Exception as exc:
             self._status(f"Runtime Error: {exc}")
             return
 
-        # Collect direct commands (INSERT / DELETE tuples)
         direct_commands = [a for a in actions if isinstance(a, tuple)]
 
         if not direct_commands and not has_balance_rules:
@@ -296,11 +336,8 @@ class DSLVisualizerApp:
             elif cmd == "DELETE":
                 self.animation_queue.append(lambda v=val: self.bst.delete(v))
 
-        # If the script contains IF…THEN rules,
-        # simulate balance steps and queue them after the inserts/deletes.
         if has_balance_rules and self.bst.root is not None:
             sim_root = copy.deepcopy(self.bst.root)
-            # Apply any pending inserts/deletes to the simulation copy
             for cmd, val in direct_commands:
                 sim_bst = BST()
                 sim_bst.root = sim_root
@@ -327,7 +364,7 @@ class DSLVisualizerApp:
             for _ in range(steps):
                 self.animation_queue.append(
                     lambda p=parsed_tree: setattr(
-                        self.bst, 'root',
+                        self.bst, "root",
                         self.interpreter.balance_step(self.bst.root, p)[0],
                     )
                 )
@@ -338,48 +375,35 @@ class DSLVisualizerApp:
             return
 
         self._total_steps = total
-        self._steps_done = 0
-
+        self._steps_done  = 0
         self._on_step_forward()
         self._status(f"Queued {total} step(s). Animating…")
 
-    # ---- helpers ----
-
-    def _status(self, message: str):
-        """Update the control panel status bar."""
-        self.control_panel.set_status(message)
-
     def _on_reset_view(self):
-        """Recompute node positions and redraw from scratch."""
         self.renderer.draw_tree(self.bst.root, self._current_positions)
         self.renderer.draw_stats(self.bst.root)
         self._status("Status: View reset.")
 
     def _on_export(self):
-        """Export current tree data to a CSV file."""
-        import csv
-        import tkinter.filedialog as fd
-        path = fd.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv")],
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Tree CSV", "", "CSV files (*.csv)"
         )
         if not path:
             return
-        rows = []
+        rows: list[dict] = []
         self._collect_rows(self.bst.root, rows)
         with open(path, "w", newline="") as f:
             writer = csv.DictWriter(
-                f, fieldnames=["val", "height", "balance_factor", "colour"],
+                f, fieldnames=["val", "height", "balance_factor", "colour"]
             )
             writer.writeheader()
             writer.writerows(rows)
         self._status(f"Exported to {path}")
 
     def _collect_rows(self, node, rows):
-        """Recursively collect tree node data into a list of dicts."""
         if not node:
             return
-        lh = node.left.height if node.left else 0
+        lh = node.left.height  if node.left  else 0
         rh = node.right.height if node.right else 0
         rows.append({
             "val": node.val,
@@ -387,11 +411,21 @@ class DSLVisualizerApp:
             "balance_factor": lh - rh,
             "colour": node.colour,
         })
-        self._collect_rows(node.left, rows)
+        self._collect_rows(node.left,  rows)
         self._collect_rows(node.right, rows)
 
+    # ── helpers ─────────────────────────────────────────────────────────
+
+    def _status(self, message: str):
+        self.statusBar().showMessage(message)
+
+    def _set_animating(self, value: bool):
+        self._animating = value
+
+    def _on_speed_change(self, value: int):
+        self._anim_delay = value
+
     def _describe_action(self, action) -> str:
-        """Return a human-readable description of an animation action."""
         if callable(action):
             return "Applying tree mutation"
         if isinstance(action, dict):
@@ -399,7 +433,6 @@ class DSLVisualizerApp:
         return str(action)
 
     def _validate_script(self, script: str):
-        """Real-time syntax check called by the editor's debounced timer."""
         if not script:
             self.editor_panel.clear_error()
             self._status("")
@@ -410,33 +443,23 @@ class DSLVisualizerApp:
             self.editor_panel.set_error(exc.line, exc.column, str(exc))
             self._status(f"Syntax Error at line {exc.line}, col {exc.column}.")
         except Exception:
-            # Non-syntax errors (e.g. partially typed line) — ignore
             pass
         else:
             self.editor_panel.clear_error()
             self._status("✓ Script valid")
 
-    def _set_animating(self, value: bool):
-        """Setter callback for the animation guard flag."""
-        self._animating = value
-
-    def _on_speed_change(self, value: int):
-        """Update the animation delay from the slider."""
-        self._anim_delay = value
-
-    # ---- keyboard shortcuts ----
+    # ── keyboard shortcuts ───────────────────────────────────────────────
 
     def _bind_shortcuts(self):
-        self.root.bind("<Control-Return>", lambda e: self._on_run_script())
-        self.root.bind("<Control-l>", self._clear_editor)
+        QShortcut(QKeySequence("Ctrl+Return"), self).activated.connect(self._on_run_script)
+        QShortcut(QKeySequence("Ctrl+L"),      self).activated.connect(self._clear_editor)
 
-    def _clear_editor(self, _event=None):
+    def _clear_editor(self):
         self.editor_panel.clear()
         self._status("Status: Editor cleared  (Ctrl+L)")
-        return "break"  # prevent default behaviour
 
-    # ---- entry point ----
+    # ── entry point (backwards-compat) ───────────────────────────────────
 
     def run(self):
-        """Start the Tk main loop."""
-        self.root.mainloop()
+        """Deprecated — use gui.main() which handles QApplication.exec()."""
+        pass

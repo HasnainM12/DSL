@@ -1,39 +1,55 @@
 """
-ASTPanel — displays the parsed Lark AST as indented text.
+ASTPanel — displays the parsed Lark AST as indented text (PyQt6 version).
 """
 
-import tkinter as tk
-import customtkinter as ctk
-from gui.constants import COLOURS, FONT_EDITOR, FONT_HEADER
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPlainTextEdit, QFrame
+from PyQt6.QtGui import QFont
+
+from gui.constants import COLOURS
 
 
-class ASTPanel:
+class ASTPanel(QWidget):
     """Read-only panel that renders a Lark parse tree as indented text."""
 
-    def __init__(self, parent):
-        self._frame = ctk.CTkFrame(parent, fg_color=COLOURS["bg_dark"], corner_radius=0)
-        ctk.CTkLabel(
-            self._frame, text="AST Viewer",
-            font=FONT_HEADER, text_color=COLOURS["header_accent"],
-        ).pack(fill=tk.X, padx=12, pady=(8, 4))
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumHeight(80)
 
-        self._text = tk.Text(
-            self._frame, wrap=tk.WORD, state=tk.DISABLED,
-            bg=COLOURS["bg_dark"], fg=COLOURS["fg_text"],
-            font=FONT_EDITOR, relief=tk.FLAT,
-            highlightthickness=0, padx=8, pady=6,
-        )
-        self._text.pack(fill=tk.BOTH, expand=True)
-        parent.add(self._frame, minsize=80)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-    def update(self, lark_tree):
+        # Header
+        header = QLabel("AST Viewer")
+        header.setStyleSheet(f"""
+            color: {COLOURS["header_accent"]};
+            font-size: 14px;
+            font-weight: bold;
+            font-family: "Inter", sans-serif;
+            padding: 8px 12px 4px 12px;
+            background: {COLOURS["bg_dark"]};
+        """)
+        layout.addWidget(header)
+
+        # Text area
+        self._text = QPlainTextEdit()
+        self._text.setReadOnly(True)
+        self._text.setFont(QFont("Cascadia Code", 11))
+        self._text.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {COLOURS["bg_dark"]};
+                color: {COLOURS["fg_text"]};
+                border: none;
+            }}
+        """)
+        layout.addWidget(self._text)
+
+    def update(self, lark_tree):   # noqa: A003
         """Render a Lark parse tree as indented text."""
-        self._text.config(state=tk.NORMAL)
-        self._text.delete("1.0", tk.END)
         if lark_tree:
-            self._text.insert("1.0", lark_tree.pretty())
-        self._text.config(state=tk.DISABLED)
+            self._text.setPlainText(lark_tree.pretty())
+        else:
+            self._text.setPlainText("")
 
     def clear(self):
-        """Clear the AST display."""
-        self.update(None)
+        self._text.setPlainText("")
