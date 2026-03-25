@@ -48,15 +48,17 @@ class RDPEvaluator:
     # --- Node Evaluation Methods ---
 
     def _eval_program(self, node: ProgramNode):
-        triggered_actions = []
+        # First-match-wins for rules: when an IF/THEN rule fires (returns a
+        # list), return immediately.  Bare actions are always collected.
+        collected = []
         for item in node.items:
             result = self.evaluate(item)
             if result is not None:
                 if isinstance(result, list):
-                    triggered_actions.extend(result)
+                    return collected + result
                 else:
-                    triggered_actions.append(result)
-        return triggered_actions
+                    collected.append(result)
+        return collected
 
     def _eval_rule(self, node: RuleNode):
         condition_met = self.evaluate(node.condition)

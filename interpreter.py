@@ -1,5 +1,4 @@
 import os
-import copy
 from lark import Lark, Tree, Transformer, v_args
 from tree import BST, TreeNode
 
@@ -12,6 +11,14 @@ class BalancingLogic(Transformer):
         self.node = current_node
 
     # --- Primitives ---
+    def condition(self, val):
+        """Pass-through: unwrap the ``condition`` Tree node to its inner value.
+
+        Without this method Lark keeps ``condition`` as a Tree object which
+        Python always considers truthy, breaking AND/OR/NOT evaluation.
+        """
+        return val
+
     def number(self, n):
         return float(n)
 
@@ -175,16 +182,20 @@ class BalancingLogic(Transformer):
         return None
 
     def start(self, *items):
-        triggered_actions = []
+        # First-match-wins for rules: when an IF/THEN rule fires (returns a
+        # list), return immediately — remaining rules are not evaluated.  This
+        # mirrors the if/elif structure of native implementations.
+        # Bare actions (tuples like INSERT/DELETE) are always collected.
+        collected = []
         for item in items:
             if item:
-                # If it's a list (from rules), extend it
                 if isinstance(item, list):
-                    triggered_actions.extend(item)
-                # If it's a single action (from direct actions), add it
+                    # A triggered rule — return its actions immediately
+                    # (prepend any bare actions already collected)
+                    return collected + item
                 else:
-                    triggered_actions.append(item)
-        return triggered_actions
+                    collected.append(item)
+        return collected
 
 
 # ==========================================
@@ -219,10 +230,9 @@ class DSLInterpreter:
                 raise RuntimeError(f"Syntax Error in DSL: {e}")
 
         # Evaluate the AST with this node's context
-        # Deep-copy because Lark's transform mutates the tree in place
         evaluator = BalancingLogic(node)
         try:
-            actions = evaluator.transform(copy.deepcopy(parsed_tree))
+            actions = evaluator.transform(parsed_tree)
         except Exception as e:
             raise RuntimeError(f"Runtime Error: {str(e)}")
 
@@ -311,7 +321,7 @@ class DSLInterpreter:
         """
         parsed_tree = self.parser.parse(dsl_script)  # caller handles errors
         evaluator = BalancingLogic(current_node=None)
-        return evaluator.transform(copy.deepcopy(parsed_tree))
+        return evaluator.transform(parsed_tree)
 
     def balance_tree(self, node, dsl_script):
         if not node:
