@@ -8,23 +8,32 @@ rule: "IF" condition "THEN" action_block
 
 // ------------------------------------------
 // Conditions
+// Precedence (tightest to loosest): NOT > AND > OR
 // ------------------------------------------
-condition: comparison
-         | condition "AND" condition -> and_expr
-         | condition "OR" condition  -> or_expr
-         | "NOT" condition           -> not_expr
-         | "(" condition ")"
+?condition: or_expr
+
+?or_expr: and_expr
+        | or_expr "OR" and_expr      -> or_expr
+
+?and_expr: not_expr
+         | and_expr "AND" not_expr   -> and_expr
+
+?not_expr: atom
+         | "NOT" not_expr            -> not_expr
+
+?atom: comparison
+     | "(" condition ")"
 
 comparison: expression COMPARATOR expression
 
 // ------------------------------------------
 // Expressions (with arithmetic)
 // ------------------------------------------
-expression: expression "+" term  -> add_expr
+?expression: expression "+" term  -> add_expr
           | expression "-" term  -> sub_expr
           | term
 
-term: SIGNED_NUMBER              -> number
+?term: SIGNED_NUMBER              -> number
     | BALANCE_KW                 -> get_balance
     | HEIGHT_KW                  -> get_height
     | LEFT_BAL_KW                -> get_left_balance
@@ -32,16 +41,25 @@ term: SIGNED_NUMBER              -> number
     | COLOUR_KW                  -> get_colour
     | PARENT_COLOUR_KW           -> get_parent_colour
     | UNCLE_COLOUR_KW            -> get_uncle_colour
+    | IS_LEFT_CHILD_KW           -> get_is_left_child
+    | PARENT_IS_LEFT_CHILD_KW    -> get_parent_is_left_child
+    | SIBLING_COLOUR_KW         -> get_sibling_colour
+    | SIBLING_LEFT_COLOUR_KW    -> get_sibling_left_colour
+    | SIBLING_RIGHT_COLOUR_KW   -> get_sibling_right_colour
     | ESCAPED_STRING             -> string_literal
     | "(" expression ")"
 
 // ------------------------------------------
 // Actions
 // ------------------------------------------
-action_block: "{" action+ "}"
+?action_block: "{" action+ "}"
             | action
 
-action: ROT_LEFT_KW        -> rotate_left
+action: ROT_LEFT_AT_GRANDPARENT_KW  -> rotate_left_at_grandparent
+      | ROT_RIGHT_AT_GRANDPARENT_KW -> rotate_right_at_grandparent
+      | ROT_LEFT_AT_PARENT_KW       -> rotate_left_at_parent
+      | ROT_RIGHT_AT_PARENT_KW      -> rotate_right_at_parent
+      | ROT_LEFT_KW        -> rotate_left
       | ROT_RIGHT_KW       -> rotate_right
       | ROT_LEFT_RIGHT_KW  -> rotate_left_right
       | ROT_RIGHT_LEFT_KW  -> rotate_right_left
@@ -49,6 +67,14 @@ action: ROT_LEFT_KW        -> rotate_left
       | "SET_PARENT_COLOUR" string -> set_parent_colour
       | "SET_UNCLE_COLOUR" string -> set_uncle_colour
       | "SET_GRANDPARENT_COLOUR" string -> set_grandparent_colour
+      | "SET_SIBLING_COLOUR" string         -> set_sibling_colour
+      | "SET_SIBLING_LEFT_COLOUR" string    -> set_sibling_left_colour
+      | "SET_SIBLING_RIGHT_COLOUR" string   -> set_sibling_right_colour
+      | SET_SIBLING_COLOUR_FROM_PARENT_KW   -> set_sibling_colour_from_parent
+      | ROT_LEFT_AT_SIBLING_KW             -> rotate_left_at_sibling
+      | ROT_RIGHT_AT_SIBLING_KW            -> rotate_right_at_sibling
+      | SIGNAL_DONE_KW                     -> signal_done
+      | SIGNAL_PROPAGATE_KW                -> signal_propagate
       | "INSERT" SIGNED_NUMBER -> insert_cmd
       | "DELETE" SIGNED_NUMBER -> delete_cmd
 
@@ -62,11 +88,25 @@ RIGHT_BAL_KW: "right_child_balance"
 COLOUR_KW: "node_colour"
 PARENT_COLOUR_KW: "parent_colour"
 UNCLE_COLOUR_KW: "uncle_colour"
+IS_LEFT_CHILD_KW: "is_left_child"
+PARENT_IS_LEFT_CHILD_KW: "parent_is_left_child"
+SIBLING_COLOUR_KW: "sibling_colour"
+SIBLING_LEFT_COLOUR_KW: "sibling_left_colour"
+SIBLING_RIGHT_COLOUR_KW: "sibling_right_colour"
 
+ROT_LEFT_AT_GRANDPARENT_KW.2:  "ROTATE_LEFT_AT_GRANDPARENT"
+ROT_RIGHT_AT_GRANDPARENT_KW.2: "ROTATE_RIGHT_AT_GRANDPARENT"
+ROT_LEFT_AT_PARENT_KW.2:       "ROTATE_LEFT_AT_PARENT"
+ROT_RIGHT_AT_PARENT_KW.2:      "ROTATE_RIGHT_AT_PARENT"
+ROT_LEFT_AT_SIBLING_KW.2:      "ROTATE_LEFT_AT_SIBLING"
+ROT_RIGHT_AT_SIBLING_KW.2:     "ROTATE_RIGHT_AT_SIBLING"
 ROT_LEFT_KW: "ROTATE_LEFT"
 ROT_RIGHT_KW: "ROTATE_RIGHT"
 ROT_LEFT_RIGHT_KW: "ROTATE_LEFT_RIGHT"
 ROT_RIGHT_LEFT_KW: "ROTATE_RIGHT_LEFT"
+SET_SIBLING_COLOUR_FROM_PARENT_KW: "SET_SIBLING_COLOUR_FROM_PARENT"
+SIGNAL_DONE_KW: "DONE"
+SIGNAL_PROPAGATE_KW: "PROPAGATE"
 
 COMPARATOR: ">=" | "<=" | ">" | "<" | "==" | "!="
 string: ESCAPED_STRING

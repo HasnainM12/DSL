@@ -122,6 +122,10 @@ class TokenType:
     ROTATE_RIGHT      = "ROTATE_RIGHT"
     ROTATE_LEFT_RIGHT = "ROTATE_LEFT_RIGHT"
     ROTATE_RIGHT_LEFT = "ROTATE_RIGHT_LEFT"
+    ROTATE_LEFT_AT_PARENT        = "ROTATE_LEFT_AT_PARENT"
+    ROTATE_RIGHT_AT_PARENT       = "ROTATE_RIGHT_AT_PARENT"
+    ROTATE_LEFT_AT_GRANDPARENT   = "ROTATE_LEFT_AT_GRANDPARENT"
+    ROTATE_RIGHT_AT_GRANDPARENT  = "ROTATE_RIGHT_AT_GRANDPARENT"
     SET_COLOUR             = "SET_COLOUR"
     SET_PARENT_COLOUR      = "SET_PARENT_COLOUR"
     SET_UNCLE_COLOUR       = "SET_UNCLE_COLOUR"
@@ -145,20 +149,25 @@ class Token:
 _SENSOR_KEYWORDS = {
     "balance_factor", "height", "left_child_balance",
     "right_child_balance", "node_colour", "parent_colour", "uncle_colour",
+    "is_left_child", "parent_is_left_child",
 }
 
 # Action keywords (order matters — longer matches first)
 _ACTION_KEYWORDS = [
-    ("ROTATE_LEFT_RIGHT",    TokenType.ROTATE_LEFT_RIGHT),
-    ("ROTATE_RIGHT_LEFT",    TokenType.ROTATE_RIGHT_LEFT),
-    ("ROTATE_LEFT",          TokenType.ROTATE_LEFT),
-    ("ROTATE_RIGHT",         TokenType.ROTATE_RIGHT),
-    ("SET_GRANDPARENT_COLOUR", TokenType.SET_GRANDPARENT_COLOUR),
-    ("SET_PARENT_COLOUR",    TokenType.SET_PARENT_COLOUR),
-    ("SET_UNCLE_COLOUR",     TokenType.SET_UNCLE_COLOUR),
-    ("SET_COLOUR",           TokenType.SET_COLOUR),
-    ("INSERT",               TokenType.INSERT),
-    ("DELETE",               TokenType.DELETE),
+    ("ROTATE_LEFT_RIGHT",           TokenType.ROTATE_LEFT_RIGHT),
+    ("ROTATE_RIGHT_LEFT",           TokenType.ROTATE_RIGHT_LEFT),
+    ("ROTATE_LEFT_AT_GRANDPARENT",  TokenType.ROTATE_LEFT_AT_GRANDPARENT),
+    ("ROTATE_RIGHT_AT_GRANDPARENT", TokenType.ROTATE_RIGHT_AT_GRANDPARENT),
+    ("ROTATE_LEFT_AT_PARENT",       TokenType.ROTATE_LEFT_AT_PARENT),
+    ("ROTATE_RIGHT_AT_PARENT",      TokenType.ROTATE_RIGHT_AT_PARENT),
+    ("ROTATE_LEFT",                 TokenType.ROTATE_LEFT),
+    ("ROTATE_RIGHT",                TokenType.ROTATE_RIGHT),
+    ("SET_GRANDPARENT_COLOUR",      TokenType.SET_GRANDPARENT_COLOUR),
+    ("SET_PARENT_COLOUR",           TokenType.SET_PARENT_COLOUR),
+    ("SET_UNCLE_COLOUR",            TokenType.SET_UNCLE_COLOUR),
+    ("SET_COLOUR",                  TokenType.SET_COLOUR),
+    ("INSERT",                      TokenType.INSERT),
+    ("DELETE",                      TokenType.DELETE),
 ]
 
 _LOGIC_KEYWORDS = {
@@ -481,6 +490,22 @@ class RDPParser:
         if tok.type == TokenType.ROTATE_RIGHT_LEFT:
             self._advance()
             return ActionNode(action_type="ROTATE_RIGHT_LEFT")
+
+        if tok.type == TokenType.ROTATE_LEFT_AT_PARENT:
+            self._advance()
+            return ActionNode(action_type="ROTATE_LEFT_AT_PARENT")
+
+        if tok.type == TokenType.ROTATE_RIGHT_AT_PARENT:
+            self._advance()
+            return ActionNode(action_type="ROTATE_RIGHT_AT_PARENT")
+
+        if tok.type == TokenType.ROTATE_LEFT_AT_GRANDPARENT:
+            self._advance()
+            return ActionNode(action_type="ROTATE_LEFT_AT_GRANDPARENT")
+
+        if tok.type == TokenType.ROTATE_RIGHT_AT_GRANDPARENT:
+            self._advance()
+            return ActionNode(action_type="ROTATE_RIGHT_AT_GRANDPARENT")
 
         if tok.type == TokenType.SET_COLOUR:
             self._advance()

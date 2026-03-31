@@ -34,7 +34,7 @@ class RBNode:
 
 
 class RBTree:
-    """Canonical Red-Black BST with insertion + fix-up."""
+    """Canonical Red-Black BST with insertion, deletion + fix-up."""
 
     def __init__(self):
         # Sentinel NIL node — shared across the tree
@@ -70,6 +70,39 @@ class RBTree:
             parent.right = new_node
 
         self._fix_insert(new_node)
+
+    def delete(self, val):
+        """Delete *val* from the tree and fix up Red-Black properties."""
+        z = self._find_node(val)
+        if z is self.NIL:
+            return  # not found
+
+        y = z
+        y_original_colour = y.colour
+
+        if z.left is self.NIL:
+            x = z.right
+            self._transplant(z, z.right)
+        elif z.right is self.NIL:
+            x = z.left
+            self._transplant(z, z.left)
+        else:
+            y = self._minimum(z.right)
+            y_original_colour = y.colour
+            x = y.right
+            if y.parent is z:
+                x.parent = y  # important when x is NIL
+            else:
+                self._transplant(y, y.right)
+                y.right = z.right
+                y.right.parent = y
+            self._transplant(z, y)
+            y.left = z.left
+            y.left.parent = y
+            y.colour = z.colour
+
+        if y_original_colour == BLACK:
+            self._fix_delete(x)
 
     def inorder(self):
         """Return a sorted list of values via in-order traversal."""
@@ -172,6 +205,94 @@ class RBTree:
 
         y.right = x
         x.parent = y
+
+    # ------------------------------------------------------------------
+    # Red-Black fix-up after deletion
+    # ------------------------------------------------------------------
+
+    def _fix_delete(self, x):
+        """Restore Red-Black properties after deletion."""
+        while x is not self.root and x.colour == BLACK:
+            if x is x.parent.left:
+                w = x.parent.right  # sibling
+                # Case 1: sibling is RED
+                if w.colour == RED:
+                    w.colour = BLACK
+                    x.parent.colour = RED
+                    self._rotate_left(x.parent)
+                    w = x.parent.right
+                # Case 2: sibling BLACK, both children BLACK
+                if w.left.colour == BLACK and w.right.colour == BLACK:
+                    w.colour = RED
+                    x = x.parent
+                else:
+                    # Case 3: sibling BLACK, right child BLACK
+                    if w.right.colour == BLACK:
+                        w.left.colour = BLACK
+                        w.colour = RED
+                        self._rotate_right(w)
+                        w = x.parent.right
+                    # Case 4: sibling BLACK, right child RED
+                    w.colour = x.parent.colour
+                    x.parent.colour = BLACK
+                    w.right.colour = BLACK
+                    self._rotate_left(x.parent)
+                    x = self.root
+            else:
+                # Mirror: x is right child
+                w = x.parent.left
+                if w.colour == RED:
+                    w.colour = BLACK
+                    x.parent.colour = RED
+                    self._rotate_right(x.parent)
+                    w = x.parent.left
+                if w.right.colour == BLACK and w.left.colour == BLACK:
+                    w.colour = RED
+                    x = x.parent
+                else:
+                    if w.left.colour == BLACK:
+                        w.right.colour = BLACK
+                        w.colour = RED
+                        self._rotate_left(w)
+                        w = x.parent.left
+                    w.colour = x.parent.colour
+                    x.parent.colour = BLACK
+                    w.left.colour = BLACK
+                    self._rotate_right(x.parent)
+                    x = self.root
+        x.colour = BLACK
+
+    # ------------------------------------------------------------------
+    # Tree surgery helpers
+    # ------------------------------------------------------------------
+
+    def _transplant(self, u, v):
+        """Replace subtree rooted at u with subtree rooted at v."""
+        if u.parent is None:
+            self.root = v
+        elif u is u.parent.left:
+            u.parent.left = v
+        else:
+            u.parent.right = v
+        v.parent = u.parent
+
+    def _find_node(self, val):
+        """Return the node with *val*, or NIL if not found."""
+        node = self.root
+        while node is not self.NIL:
+            if val == node.val:
+                return node
+            elif val < node.val:
+                node = node.left
+            else:
+                node = node.right
+        return self.NIL
+
+    def _minimum(self, node):
+        """Return the leftmost descendant of *node*."""
+        while node.left is not self.NIL:
+            node = node.left
+        return node
 
     # ------------------------------------------------------------------
     # Helpers

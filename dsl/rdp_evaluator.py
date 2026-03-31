@@ -68,8 +68,10 @@ class RDPEvaluator:
 
     def _eval_action(self, node: ActionNode):
         # String match on the action_type to replicate the DSL rule names
-        if node.action_type in ("ROTATE_LEFT", "ROTATE_RIGHT", 
-                                "ROTATE_LEFT_RIGHT", "ROTATE_RIGHT_LEFT"):
+        if node.action_type in ("ROTATE_LEFT", "ROTATE_RIGHT",
+                                "ROTATE_LEFT_RIGHT", "ROTATE_RIGHT_LEFT",
+                                "ROTATE_LEFT_AT_PARENT", "ROTATE_RIGHT_AT_PARENT",
+                                "ROTATE_LEFT_AT_GRANDPARENT", "ROTATE_RIGHT_AT_GRANDPARENT"):
             return node.action_type
         
         if node.action_type == "SET_COLOUR":
@@ -171,11 +173,24 @@ class RDPEvaluator:
             if not getattr(parent, 'parent', None):
                 return 'BLACK'
             grandparent = parent.parent
-            
+
             if grandparent.left is parent:
                 uncle = grandparent.right
             else:
                 uncle = grandparent.left
             return getattr(uncle, 'colour', 'BLACK') if uncle else 'BLACK'
-            
+
+        if kw == "is_left_child":
+            if not self.node or not getattr(self.node, 'parent', None):
+                return 0
+            return 1 if self.node.parent.left is self.node else 0
+
+        if kw == "parent_is_left_child":
+            if not self.node or not getattr(self.node, 'parent', None):
+                return 0
+            parent = self.node.parent
+            if not getattr(parent, 'parent', None):
+                return 0
+            return 1 if parent.parent.left is parent else 0
+
         raise ValueError(f"Unknown sensor keyword: {kw}")

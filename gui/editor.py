@@ -6,19 +6,139 @@ Uses the canonical Qt line-number-area pattern:
   └── LineNumberArea (QWidget painted by CodeEditor)
 """
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPlainTextEdit, QFrame, QTextEdit
-from PyQt6.QtCore import Qt, QRect, QSize, QTimer
+import re
+
+from PyQt6.QtCore import QRect, QSize, Qt, QTimer
 from PyQt6.QtGui import (
-    QColor, QPainter, QFont, QTextFormat,
-    QTextCharFormat, QTextCursor,
+    QColor,
+    QFont,
+    QPainter,
+    QSyntaxHighlighter,
+    QTextCharFormat,
+    QTextCursor,
+    QTextFormat,
+)
+from PyQt6.QtWidgets import (
+    QFrame,
+    QLabel,
+    QPlainTextEdit,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
 
-from gui.constants import COLOURS
 
+class DSLHighlighter(QSyntaxHighlighter):
+    def __init__(self, document):
+        super().__init__(document)
+        self.highlighting_rules = []
+
+        # 1. Logic / structural keywords  ->  Terracotta, bold
+        #    Includes NOT, which was previously missing.
+        kw_fmt = QTextCharFormat()
+        kw_fmt.setForeground(QColor("#C53030"))
+        kw_fmt.setFontWeight(QFont.Weight.Bold)
+        for word in ["IF", "THEN", "AND", "OR", "NOT"]:
+            self.highlighting_rules.append((re.compile(rf"\b{word}\b"), kw_fmt))
+
+        # 2. Sensor keywords  ->  Steel Blue, italic
+        #    All twelve sensors the grammar recognises.
+        sensor_fmt = QTextCharFormat()
+        sensor_fmt.setForeground(QColor("#2B6CB0"))
+        sensor_fmt.setFontItalic(True)
+        sensors = [
+            # Longer names first (defensive — \b handles conflicts, but good practice)
+            "left_child_balance",
+            "right_child_balance",
+            "parent_is_left_child",
+            "sibling_left_colour",
+            "sibling_right_colour",
+            "node_colour",
+            "parent_colour",
+            "uncle_colour",
+            "sibling_colour",
+            "is_left_child",
+            "balance_factor",
+            "height",
+        ]
+        for word in sensors:
+            self.highlighting_rules.append((re.compile(rf"\b{word}\b"), sensor_fmt))
+
+        # 3. Action keywords  ->  Deep Charcoal, bold
+        #    Ordered longest-first within each family so that e.g.
+        #    ROTATE_LEFT_AT_GRANDPARENT is compiled before ROTATE_LEFT.
+        #    The \b word-boundary guarantees no partial overlap regardless,
+        #    but longest-first is clearer and avoids any edge-case surprises.
+        action_fmt = QTextCharFormat()
+        action_fmt.setForeground(QColor("#2D3748"))
+        action_fmt.setFontWeight(QFont.Weight.Bold)
+        actions = [
+            "ROTATE_LEFT_AT_GRANDPARENT",
+            "ROTATE_RIGHT_AT_GRANDPARENT",
+            "ROTATE_LEFT_AT_PARENT",
+            "ROTATE_RIGHT_AT_PARENT",
+            "ROTATE_LEFT_AT_SIBLING",
+            "ROTATE_RIGHT_AT_SIBLING",
+            "ROTATE_LEFT_RIGHT",
+            "ROTATE_RIGHT_LEFT",
+            "ROTATE_LEFT",
+            "ROTATE_RIGHT",
+            "SET_SIBLING_COLOUR_FROM_PARENT",
+            "SET_SIBLING_LEFT_COLOUR",
+            "SET_SIBLING_RIGHT_COLOUR",
+            "SET_SIBLING_COLOUR",
+            "SET_GRANDPARENT_COLOUR",
+            "SET_PARENT_COLOUR",
+            "SET_UNCLE_COLOUR",
+            "SET_COLOUR",
+            "INSERT",
+            "DELETE",
+            "PROPAGATE",
+            "DONE",
+        ]
+        for word in actions:
+            self.highlighting_rules.append((re.compile(rf"\b{word}\b"), action_fmt))
+
+        # 4. Comparison / arithmetic operators  ->  Warm Gold, bold
+        #    Multi-character operators listed first so >=, <=, ==, !=
+        #    are matched as a unit rather than as two separate characters.
+        #    The old pattern also incorrectly included * which is not in the grammar.
+        op_fmt = QTextCharFormat()
+        op_fmt.setForeground(QColor("#B7791F"))
+        op_fmt.setFontWeight(QFont.Weight.Bold)
+        self.highlighting_rules.append((re.compile(r">=|<=|==|!=|>|<|\+|-"), op_fmt))
+
+        # 5. Integer literals  ->  Muted Brown
+        #    Applied after operators so the digit part of -1 overrides
+        #    the operator colour for the digit (the leading - stays gold).
+        num_fmt = QTextCharFormat()
+        num_fmt.setForeground(QColor("#6B4226"))
+        self.highlighting_rules.append((re.compile(r"\b\d+\b"), num_fmt))
+
+        # 6. Quoted strings  ->  Teal
+        #    Matches the full "..." literal so colour names like "RED"
+        #    are visually distinct from sensor keywords.
+        str_fmt = QTextCharFormat()
+        str_fmt.setForeground(QColor("#2C7A7B"))
+        self.highlighting_rules.append((re.compile(r'"[^"\n]*"'), str_fmt))
+
+        # 7. Comments  ->  Muted Taupe  (must be last — overrides everything)
+        comment_fmt = QTextCharFormat()
+        comment_fmt.setForeground(QColor("#A39E95"))
+        self.highlighting_rules.append((re.compile(r"#[^\n]*"), comment_fmt))
+
+    def highlightBlock(self, text):
+        for pattern, fmt in self.highlighting_rules:
+            for match in pattern.finditer(text):
+                self.setFormat(match.start(), match.end() - match.start(), fmt)
+
+
+from gui.constants import COLOURS
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Line-number sidebar
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class _LineNumberArea(QWidget):
     def __init__(self, editor: "CodeEditor"):
@@ -35,6 +155,7 @@ class _LineNumberArea(QWidget):
 # ──────────────────────────────────────────────────────────────────────────────
 # Editor widget
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class CodeEditor(QPlainTextEdit):
     """QPlainTextEdit with a synced line-number sidebar."""
@@ -55,20 +176,19 @@ class CodeEditor(QPlainTextEdit):
         self._highlight_current_line()
 
         # Styling
-        font = QFont("Cascadia Code", 11)
+        font = QFont("JetBrains Mono", 11)
         self.setFont(font)
         self.setStyleSheet(f"""
             QPlainTextEdit {{
-                background-color: {COLOURS["bg_dark"]};
+                background-color: transparent;
                 color: {COLOURS["fg_text"]};
                 border: none;
                 selection-background-color: {COLOURS["focus_ring"]};
                 selection-color: #ffffff;
             }}
         """)
-        self.setTabStopDistance(
-            self.fontMetrics().horizontalAdvance(" ") * 4
-        )
+        self.setTabStopDistance(self.fontMetrics().horizontalAdvance(" ") * 4)
+        self.highlighter = DSLHighlighter(self.document())
 
     # ── public ──────────────────────────────────────────────────────────
 
@@ -85,26 +205,29 @@ class CodeEditor(QPlainTextEdit):
         painter = QPainter(self._line_number_area)
         painter.fillRect(event.rect(), QColor(COLOURS["bg_gutter"]))
 
-        block        = self.firstVisibleBlock()
+        block = self.firstVisibleBlock()
         block_number = block.blockNumber()
-        top    = round(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        top = round(
+            self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        )
         bottom = top + round(self.blockBoundingRect(block).height())
-        font   = QFont("Cascadia Code", 11)
+        font = QFont("JetBrains Mono", 11)
         painter.setFont(font)
 
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
                 painter.setPen(QColor(COLOURS["fg_gutter"]))
                 painter.drawText(
-                    0, top,
+                    0,
+                    top,
                     self._line_number_area.width() - 4,
                     self.fontMetrics().height(),
                     Qt.AlignmentFlag.AlignRight,
                     str(block_number + 1),
                 )
-            block        = block.next()
-            top          = bottom
-            bottom       = top + round(self.blockBoundingRect(block).height())
+            block = block.next()
+            top = bottom
+            bottom = top + round(self.blockBoundingRect(block).height())
             block_number += 1
 
     # ── Qt overrides ─────────────────────────────────────────────────────
@@ -185,6 +308,31 @@ class CodeEditor(QPlainTextEdit):
     def clear_error(self):
         self._highlight_current_line()  # restores current-line only
 
+    def set_active_line(self, line: int):
+        """Highlight the active line in a pale yellow/tan colour."""
+        self._clear_error_selections()
+        block = self.document().findBlockByLineNumber(line - 1)
+        if not block.isValid():
+            return
+        selection = QTextEdit.ExtraSelection()
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor("#EAE3D4"))
+        selection.format = fmt
+        selection.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
+        cursor = QTextCursor(block)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+        selection.cursor = cursor
+
+        cl = QTextEdit.ExtraSelection()
+        cl.format.setBackground(QColor(COLOURS["bg_card"]))
+        cl.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
+        cl.cursor = self.textCursor()
+        cl.cursor.clearSelection()
+        self.setExtraSelections([cl, selection])
+
+    def clear_active_line(self):
+        self._highlight_current_line()
+
     def _clear_error_selections(self):
         self.setExtraSelections([])
 
@@ -221,7 +369,7 @@ class EditorPanel(QWidget):
             font-weight: bold;
             font-family: "Inter", sans-serif;
             padding: 10px 12px 4px 12px;
-            background: {COLOURS["bg_dark"]};
+            background: transparent;
         """)
         layout.addWidget(header)
 
@@ -249,6 +397,12 @@ class EditorPanel(QWidget):
 
     def clear_error(self):
         self.editor.clear_error()
+
+    def set_active_line(self, line: int):
+        self.editor.set_active_line(line)
+
+    def clear_active_line(self):
+        self.editor.clear_active_line()
 
     def set_validate_callback(self, cb):
         self.editor.set_validate_callback(cb)

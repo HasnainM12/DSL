@@ -228,10 +228,12 @@ class TestNewFeatures:
         """NOT negates a condition."""
         bst = BST()
         bst.insert(50)
+        bst.insert(25)
+        # Apply rule specifically to the child node to avoid root enforcement overrides
         # node_colour is RED, NOT RED → False, so nothing should happen
         script = 'IF NOT node_colour == "RED" THEN SET_COLOUR "BLACK"'
-        new_root = interpreter.balance_tree(bst.root, script)
-        assert new_root.colour == "RED"  # unchanged
+        new_node = interpreter.apply_rules(bst.root.left, script)
+        assert new_node.colour == "RED"  # unchanged
 
     def test_arithmetic_in_condition(self, interpreter):
         """Arithmetic expressions work in conditions."""
@@ -294,3 +296,182 @@ class TestNewFeatures:
         # Apply at node 30 — grandparent is 10
         interpreter.apply_rules(bst.root.right.right, 'SET_GRANDPARENT_COLOUR "RED"')
         assert bst.root.colour == "RED"
+
+
+# ============================================================
+# balance_step — INSERT/DELETE commands in script must not
+#                cause false-positive changed=True
+# ============================================================
+class TestBalanceStepWithInserts:
+    def test_insert_in_script_does_not_cause_false_positive(self, interpreter):
+        """balance_step must return changed=False when no rule condition is met,
+        even if the parsed_tree contains INSERT commands."""
+        bst = BST()
+        for v in [2, 1, 3]:  # already balanced
+            bst.insert(v)
+        script = "IF balance_factor > 1 THEN ROTATE_RIGHT\nINSERT 50\nINSERT 30"
+        parsed = interpreter.parser.parse(script)
+        _, changed = interpreter.balance_step(bst.root, parsed)
+        assert changed is False  # was True (bug) — INSERT tuples made triggered truthy
+
+    def test_insert_in_script_rule_still_fires_when_needed(self, interpreter):
+        """balance_step returns changed=True when a real rule fires, even with INSERT commands in script."""
+        bst = BST()
+        for v in [3, 2, 1]:  # left-heavy — needs rotation
+            bst.insert(v)
+        script = "IF balance_factor > 1 THEN ROTATE_RIGHT\nINSERT 50"
+        parsed = interpreter.parser.parse(script)
+        new_root, changed = interpreter.balance_step(bst.root, parsed)
+        assert changed is True
+        assert new_root.val == 2
+
+    def test_advanced_logic_rule3_produces_one_step(self, interpreter):
+        """Rule 3 of advanced_logic.dsl fires exactly once on a zig-zag 50->30->40 tree."""
+        bst = BST()
+        for v in [50, 30, 40]:
+            bst.insert(v)
+        script = (
+            "IF NOT (height > 5) AND (balance_factor > 1 OR left_child_balance < 0)"
+            " THEN {\n    ROTATE_LEFT_RIGHT\n}\nINSERT 99"
+        )
+        parsed = interpreter.parser.parse(script)
+        steps = 0
+        root = bst.root
+        while True:
+            root, changed = interpreter.balance_step(root, parsed)
+            if not changed:
+                break
+            steps += 1
+            assert steps <= 5, "Should not need more than a few steps"
+        assert steps == 1
+        assert root.val == 40
+
+
+# ============================================================
+# Compound conditions — precedence, evaluation, integration
+# ============================================================
+class TestCompoundConditions:
+    """Tests for NOT/AND/OR precedence and evaluation correctness."""
+
+    def test_not_and_precedence_balanced_tree(self, interpreter):
+        """NOT (height > 5) AND (bf > 1) should NOT fire on a balanced tree.
+
+        Previously: grammar parsed as NOT((h>5) AND (bf>1)) = NOT(False AND False) = True.
+        Now: grammar parses as (NOT(h>5)) AND (bf>1) = True AND False = False.
+        """
+        bst = BST()
+        for v in [2, 1, 3]:  # balanced, bf=0, h=2
+            bst.insert(v)
+        script = "IF NOT (height > 5) AND balance_factor > 1 THEN ROTATE_RIGHT"
+        new_root = interpreter.apply_rules(bst.root, script)
+        assert new_root.val == 2  # unchanged — rule should NOT fire
+
+    def test_not_and_precedence_unbalanced_tree(self, interpreter):
+        """NOT (height > 5) AND (bf > 1) SHOULD fire on a left-heavy tree."""
+        bst = BST()
+        for v in [3, 2, 1]:  # left-heavy, bf=2, h=3
+            bst.insert(v)
+        script = "IF NOT (height > 5) AND balance_factor > 1 THEN ROTATE_RIGHT"
+        new_root = interpreter.apply_rules(bst.root, script)
+        assert new_root.val == 2  # rotated
+
+    def test_complex_compound_rule3_node50_fires(self, interpreter):
+        """Node 50 in [50,30,40] should fire Rule 3 (bf=2, lb=-1, h=3<5)."""
+        bst = BST()
+        for v in [50, 30, 40]:
+            bst.insert(v)
+        script = (
+            "IF NOT (height > 5) AND (balance_factor > 1 OR left_child_balance < 0)"
+            " THEN ROTATE_LEFT_RIGHT"
+        )
+        new_root = interpreter.apply_rules(bst.root, script)
+        assert new_root.val == 40  # left-right rotation on root 50
+
+    def test_complex_compound_rule3_node30_no_fire(self, interpreter):
+        """Node 30 in [50,30,40] should NOT fire Rule 3 (bf=-1, lb=0)."""
+        bst = BST()
+        for v in [50, 30, 40]:
+            bst.insert(v)
+        script = (
+            "IF NOT (height > 5) AND (balance_factor > 1 OR left_child_balance < 0)"
+            " THEN ROTATE_LEFT_RIGHT"
+        )
+        node30 = bst.root.left
+        new_root = interpreter.apply_rules(node30, script)
+        # Node 30 has bf=-1 (not >1) and lb=0 (not <0), so rule should NOT fire
+        assert new_root.val == 30  # unchanged
+
+    def test_complex_compound_rule3_node40_no_fire(self, interpreter):
+        """Node 40 (leaf) in [50,30,40] should NOT fire Rule 3."""
+        bst = BST()
+        for v in [50, 30, 40]:
+            bst.insert(v)
+        script = (
+            "IF NOT (height > 5) AND (balance_factor > 1 OR left_child_balance < 0)"
+            " THEN ROTATE_LEFT_RIGHT"
+        )
+        node40 = bst.root.left.right
+        new_root = interpreter.apply_rules(node40, script)
+        assert new_root.val == 40  # unchanged
+
+    def test_insert_before_rules_collected(self, interpreter):
+        """INSERT commands before IF rules are collected by execute_script."""
+        script = "INSERT 10\nINSERT 20\nIF balance_factor > 1 THEN ROTATE_RIGHT"
+        actions = interpreter.execute_script(script)
+        inserts = [a for a in actions if isinstance(a, tuple)]
+        assert inserts == [("INSERT", 10), ("INSERT", 20)]
+
+    def test_insert_after_rules_collected(self, interpreter):
+        """INSERT commands after IF rules are collected by execute_script."""
+        script = "IF balance_factor > 1 THEN ROTATE_RIGHT\nINSERT 10\nINSERT 20"
+        actions = interpreter.execute_script(script)
+        inserts = [a for a in actions if isinstance(a, tuple)]
+        assert inserts == [("INSERT", 10), ("INSERT", 20)]
+
+    def test_multiple_rules_first_match_wins(self, interpreter):
+        """When multiple rules match, only the first fires (if/elif semantics)."""
+        bst = BST()
+        for v in [3, 2, 1]:  # bf=2 at root
+            bst.insert(v)
+        # Both rules would match, but first-match-wins should apply ROTATE_RIGHT
+        script = (
+            "IF balance_factor > 1 THEN ROTATE_RIGHT\n"
+            "IF balance_factor > 0 THEN ROTATE_LEFT"
+        )
+        new_root = interpreter.apply_rules(bst.root, script)
+        assert new_root.val == 2  # ROTATE_RIGHT was applied, not ROTATE_LEFT
+
+    def test_and_or_combined_evaluation(self, interpreter):
+        """A AND B OR C evaluates as (A AND B) OR C."""
+        bst = BST()
+        for v in [3, 2, 1]:  # bf=2, h=3
+            bst.insert(v)
+        # bf > 1 (True) AND height > 10 (False) OR height > 2 (True)
+        # With correct precedence: (True AND False) OR True = False OR True = True
+        script = "IF balance_factor > 1 AND height > 10 OR height > 2 THEN ROTATE_RIGHT"
+        new_root = interpreter.apply_rules(bst.root, script)
+        assert new_root.val == 2  # rule fires because OR is True
+
+    def test_full_advanced_logic_balance_loop(self, interpreter):
+        """Full advanced_logic.dsl Rule 3 + INSERTs: exactly 1 balance step."""
+        bst = BST()
+        for v in [50, 30, 40]:
+            bst.insert(v)
+        script = (
+            "IF NOT (height > 5) AND (balance_factor > 1 OR left_child_balance < 0)"
+            " THEN {\n    ROTATE_LEFT_RIGHT\n}\nINSERT 99"
+        )
+        parsed = interpreter.parser.parse(script)
+        steps = 0
+        root = bst.root
+        while True:
+            root, changed = interpreter.balance_step(root, parsed)
+            if not changed:
+                break
+            steps += 1
+            if steps > 10:
+                pytest.fail("Infinite loop — balance_step never converges")
+        assert steps == 1, f"Expected 1 step, got {steps}"
+        assert root.val == 40
+        assert root.left.val == 30
+        assert root.right.val == 50

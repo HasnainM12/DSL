@@ -1,7 +1,12 @@
 # Red-Black Insertion Fix-Up
 #
 # Implements the three canonical cases of Red-Black insertion
-# rebalancing using the extended DSL colour actions.
+# rebalancing using structural position sensors and relative-level
+# rotation actions.
+#
+# Sensors used:
+#   is_left_child        — 1 if current node is parent's left child, else 0
+#   parent_is_left_child — 1 if parent is grandparent's left child, else 0
 #
 # Invariants maintained:
 #   1. Every node is RED or BLACK
@@ -12,6 +17,9 @@
 # -------------------------------------------------------
 # Case 1: Uncle is RED — recolour and propagate upward
 # -------------------------------------------------------
+# Post-order traversal naturally propagates this upward: after grandparent
+# is made RED, it will be evaluated later in the traversal and the rules
+# will fire again if its parent is also RED.
 IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "RED" THEN {
     SET_PARENT_COLOUR "BLACK"
     SET_UNCLE_COLOUR "BLACK"
@@ -19,19 +27,45 @@ IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "RED" THE
 }
 
 # -------------------------------------------------------
-# Case 2: Uncle is BLACK, inner child — double rotation
+# Case 2a + 3a: Parent is LEFT child, node is RIGHT child
 # -------------------------------------------------------
-# Left-Right case (parent is left child, node is right child)
-IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND balance_factor > 1 AND left_child_balance < 0 THEN ROTATE_LEFT_RIGHT
-
-# Right-Left case (parent is right child, node is left child)
-IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND balance_factor < -1 AND right_child_balance > 0 THEN ROTATE_RIGHT_LEFT
+# LR zig-zag: rotate left at parent (straightens to LL), then rotate
+# right at grandparent. Node becomes the new subtree root (BLACK).
+IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND parent_is_left_child == 1 AND is_left_child == 0 THEN {
+    SET_COLOUR "BLACK"
+    SET_GRANDPARENT_COLOUR "RED"
+    ROTATE_LEFT_AT_PARENT
+    ROTATE_RIGHT_AT_GRANDPARENT
+}
 
 # -------------------------------------------------------
-# Case 3: Uncle is BLACK, outer child — single rotation
+# Case 3a: Parent is LEFT child, node is LEFT child
 # -------------------------------------------------------
-# Left-Left case
-IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND balance_factor > 1 THEN ROTATE_RIGHT
+# LL straight: rotate right at grandparent. Parent becomes new root (BLACK).
+IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND parent_is_left_child == 1 AND is_left_child == 1 THEN {
+    SET_PARENT_COLOUR "BLACK"
+    SET_GRANDPARENT_COLOUR "RED"
+    ROTATE_RIGHT_AT_GRANDPARENT
+}
 
-# Right-Right case
-IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND balance_factor < -1 THEN ROTATE_LEFT
+# -------------------------------------------------------
+# Case 2b + 3b: Parent is RIGHT child, node is LEFT child
+# -------------------------------------------------------
+# RL zig-zag: rotate right at parent (straightens to RR), then rotate
+# left at grandparent. Node becomes the new subtree root (BLACK).
+IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND parent_is_left_child == 0 AND is_left_child == 1 THEN {
+    SET_COLOUR "BLACK"
+    SET_GRANDPARENT_COLOUR "RED"
+    ROTATE_RIGHT_AT_PARENT
+    ROTATE_LEFT_AT_GRANDPARENT
+}
+
+# -------------------------------------------------------
+# Case 3b: Parent is RIGHT child, node is RIGHT child
+# -------------------------------------------------------
+# RR straight: rotate left at grandparent. Parent becomes new root (BLACK).
+IF node_colour == "RED" AND parent_colour == "RED" AND uncle_colour == "BLACK" AND parent_is_left_child == 0 AND is_left_child == 0 THEN {
+    SET_PARENT_COLOUR "BLACK"
+    SET_GRANDPARENT_COLOUR "RED"
+    ROTATE_LEFT_AT_GRANDPARENT
+}

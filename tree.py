@@ -136,6 +136,12 @@ class BST:
         z.parent = y
         if T2:
             T2.parent = z
+            
+        if y.parent:
+            if y.parent.left is z:
+                y.parent.left = y
+            else:
+                y.parent.right = y
 
         # Update heights (z first, then y)
         z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
@@ -166,6 +172,12 @@ class BST:
         z.parent = y
         if T3:
             T3.parent = z
+            
+        if y.parent:
+            if y.parent.left is z:
+                y.parent.left = y
+            else:
+                y.parent.right = y
 
         # Update heights
         z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))

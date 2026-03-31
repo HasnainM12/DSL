@@ -1,4 +1,5 @@
 """Tests for grammar.lark — parsing valid and invalid DSL scripts."""
+
 import pytest
 from lark.exceptions import UnexpectedInput
 
@@ -53,20 +54,26 @@ class TestValidParsing:
         assert tree is not None
 
     def test_parenthesized_condition(self, interpreter):
-        script = "IF (balance_factor > 1 AND left_child_balance < 0) THEN ROTATE_LEFT_RIGHT"
+        script = (
+            "IF (balance_factor > 1 AND left_child_balance < 0) THEN ROTATE_LEFT_RIGHT"
+        )
         tree = interpreter.parser.parse(script)
         assert tree is not None
 
     def test_avl_dsl_file_parses(self, interpreter):
         import os
-        dsl_path = os.path.join(os.path.dirname(__file__), '..', 'examples', 'avl.dsl')
+
+        dsl_path = os.path.join(os.path.dirname(__file__), "..", "examples", "avl.dsl")
         with open(dsl_path) as f:
             tree = interpreter.parser.parse(f.read())
         assert tree is not None
 
     def test_red_black_dsl_file_parses(self, interpreter):
         import os
-        dsl_path = os.path.join(os.path.dirname(__file__), '..', 'examples', 'red-black.dsl')
+
+        dsl_path = os.path.join(
+            os.path.dirname(__file__), "..", "examples", "red-black.dsl"
+        )
         with open(dsl_path) as f:
             tree = interpreter.parser.parse(f.read())
         assert tree is not None
@@ -87,12 +94,58 @@ class TestValidParsing:
         assert tree is not None
 
     def test_rb_case1_action_block_parses(self, interpreter):
-        script = ('IF node_colour == "RED" AND parent_colour == "RED" '
-                  'AND uncle_colour == "RED" THEN { '
-                  'SET_PARENT_COLOUR "BLACK" '
-                  'SET_UNCLE_COLOUR "BLACK" '
-                  'SET_GRANDPARENT_COLOUR "RED" }')
+        script = (
+            'IF node_colour == "RED" AND parent_colour == "RED" '
+            'AND uncle_colour == "RED" THEN { '
+            'SET_PARENT_COLOUR "BLACK" '
+            'SET_UNCLE_COLOUR "BLACK" '
+            'SET_GRANDPARENT_COLOUR "RED" }'
+        )
         tree = interpreter.parser.parse(script)
+        assert tree is not None
+
+    def test_advanced_logic_dsl_file_parses(self, interpreter):
+        """advanced_logic.dsl must use DONE/PROPAGATE, not SIGNAL_DONE/SIGNAL_PROPAGATE."""
+        import os
+
+        dsl_path = os.path.join(
+            os.path.dirname(__file__), "..", "examples", "advanced_logic.dsl"
+        )
+        with open(dsl_path) as f:
+            tree = interpreter.parser.parse(f.read())
+        assert tree is not None
+
+    def test_automated_test_dsl_file_parses(self, interpreter):
+        """automated_test.dsl mixes INSERT/DELETE commands with balancing rules."""
+        import os
+
+        dsl_path = os.path.join(
+            os.path.dirname(__file__), "..", "examples", "automated_test.dsl"
+        )
+        with open(dsl_path) as f:
+            tree = interpreter.parser.parse(f.read())
+        assert tree is not None
+
+    def test_rb_structural_asserts_dsl_file_parses(self, interpreter):
+        """rb_structural_asserts.dsl must use DONE/PROPAGATE, not SIGNAL_* names."""
+        import os
+
+        dsl_path = os.path.join(
+            os.path.dirname(__file__), "..", "examples", "rb_structural_asserts.dsl"
+        )
+        with open(dsl_path) as f:
+            tree = interpreter.parser.parse(f.read())
+        assert tree is not None
+
+    def test_red_black_delete_dsl_file_parses(self, interpreter):
+        """red-black-delete.dsl is the deletion fix-up script — must parse cleanly."""
+        import os
+
+        dsl_path = os.path.join(
+            os.path.dirname(__file__), "..", "examples", "red-black-delete.dsl"
+        )
+        with open(dsl_path) as f:
+            tree = interpreter.parser.parse(f.read())
         assert tree is not None
 
 
