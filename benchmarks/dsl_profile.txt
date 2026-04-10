@@ -1,0 +1,49 @@
+=== DSL Profiling Results (1,000 sorted ascending insertions) ===
+         526082557 function calls (355395388 primitive calls) in 181.189 seconds
+
+   Ordered by: cumulative time
+   List reduced from 436 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.016    0.016  181.189  181.189 C:\Programming\University\ThirdYear\DSL\benchmarks\profile_dsl.py:16(run_bulk_insertions)
+     1000    0.003    0.000  181.047    0.181 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:544(balance_tree)
+1002000/1000    1.134    0.000  179.532    0.180 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:559(_balance_recursive)
+   500500    1.071    0.000  178.281    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:316(apply_rules)
+   500515    0.668    0.000  177.009    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:159(transform)
+40545549/1005696   17.195    0.000  176.265    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:143(_transform_children)
+14514617/500515   16.387    0.000  175.814    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:155(_transform_tree)
+ 14517257   11.553    0.000  125.095    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:111(_call_userfunc)
+159801416/43683552   30.330    0.000   97.466    0.000 {built-in method builtins.getattr}
+ 14514733   10.086    0.000   79.153    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:484(__get__)
+ 14514733    6.682    0.000   69.067    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:474(__init__)
+ 14514733   32.613    0.000   60.340    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\functools.py:36(update_wrapper)
+ 12512733    6.583    0.000   17.692    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:503(_vargs_inline)
+ 11011435    6.540    0.000   13.453    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:130(_call_userfunc_token)
+ 14514733    6.677    0.000   12.976    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:481(__call__)
+ 87088423    9.755    0.000    9.755    0.000 {built-in method builtins.setattr}
+ 57545264    7.081    0.000    7.081    0.000 {built-in method builtins.isinstance}
+  5577939    2.556    0.000    3.347    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\lexer.py:265(__eq__)
+  2002000    1.109    0.000    2.976    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:507(_vargs_meta)
+ 14514788    2.652    0.000    2.652    0.000 {method 'update' of 'dict' objects}
+  3003000    2.202    0.000    2.566    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:183(comparison)
+ 14809778    1.732    0.000    1.736    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\tree.py:64(meta)
+     1002    0.005    0.000    1.524    0.002 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\parser_frontends.py:123(parse)
+     1000    0.003    0.000    1.511    0.002 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\lark.py:654(parse)
+     1002    0.002    0.000    1.497    0.001 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\parsers\lalr_parser.py:40(parse)
+     1002    0.004    0.000    1.495    0.001 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\parsers\lalr_parser.py:83(parse)
+     1002    0.020    0.000    1.489    0.001 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\parsers\lalr_parser.py:91(parse_from_state)
+  3003000    1.352    0.000    1.352    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:18(number)
+ 11011435    1.072    0.000    1.072    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\visitors.py:182(__default_token__)
+    33603    0.270    0.000    1.024    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\parsers\lalr_parser_state.py:67(feed_token)
+  2002000    0.699    0.000    0.987    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:266(rule)
+    73000    0.324    0.000    0.629    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\parse_tree_builder.py:33(__call__)
+  2002000    0.552    0.000    0.552    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:25(get_balance)
+    33000    0.025    0.000    0.432    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\lexer.py:685(lex)
+    33603    0.098    0.000    0.409    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\lexer.py:614(next_token)
+  2149055    0.314    0.000    0.314    0.000 {built-in method builtins.hasattr}
+    68896    0.037    0.000    0.193    0.000 C:\Users\Hasnain\AppData\Local\Programs\Python\Python313\Lib\site-packages\lark\lexer.py:611(match)
+   500500    0.174    0.000    0.174    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:280(start)
+   500500    0.148    0.000    0.148    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:32(get_left_balance)
+  1001000    0.138    0.000    0.138    0.000 C:\Programming\University\ThirdYear\DSL\benchmarks\..\interpreter.py:211(and_expr)
+
+

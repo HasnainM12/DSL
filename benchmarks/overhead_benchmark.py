@@ -7,6 +7,9 @@ import time
 import random
 import sys
 import os
+import cProfile
+import pstats
+import io
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from tree import BST, TreeNode
@@ -72,11 +75,19 @@ print(f"Native Python:  {elapsed_native:.2f} ms for {N} inserts")
 # --- DSL benchmark ---
 interp = DSLInterpreter()
 bst_dsl = BST()
+
+def run_dsl_inserts():
+    for val in values:
+        bst_dsl.insert(val)
+        bst_dsl.root = interp.balance_tree(bst_dsl.root, AVL_DSL)
+
+profiler = cProfile.Profile()
+profiler.enable()
 start = time.perf_counter()
-for val in values:
-    bst_dsl.insert(val)
-    bst_dsl.root = interp.balance_tree(bst_dsl.root, AVL_DSL)
+run_dsl_inserts()
 elapsed_dsl = (time.perf_counter() - start) * 1000
+profiler.disable()
+
 results.append({"method": "dsl_driven", "n": N, "elapsed_ms": f"{elapsed_dsl:.2f}"})
 print(f"DSL-driven:     {elapsed_dsl:.2f} ms for {N} inserts")
 
@@ -90,3 +101,12 @@ with open(os.path.join(os.path.dirname(__file__), "overhead.csv"), "w", newline=
     writer.writerows(results)
 
 print("Results written to benchmarks/overhead.csv")
+
+print("\n" + "="*50)
+print("--- DSL Profiling Results ---")
+s = io.StringIO()
+sortby = 'cumulative'
+ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
+ps.print_stats(20)
+print(s.getvalue())
+print("="*50 + "\n")
