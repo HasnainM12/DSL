@@ -122,8 +122,9 @@ class DSLVisualizerApp(QMainWindow):
         self._animating = False
         self._anim_delay = ANIM_DELAY_MS
 
-        # ── undo history ──────────────────────────────────────────────────
-        self._history_stack: list = []
+        # ── undo / redo history ───────────────────────────────────────────
+        self._history_stack: list = []  # entries: (pre_action_tree, action)
+        self._redo_stack: list = []     # actions that can be re-applied
 
         # ── step counter ──────────────────────────────────────────────────
         self._total_steps = 0
@@ -245,6 +246,8 @@ class DSLVisualizerApp(QMainWindow):
         self._recolor_tree(self.bst.root, new_mode)
 
         self.animation_queue.clear()
+        self._history_stack.clear()
+        self._redo_stack.clear()
         self._on_reset_view()
 
     def _recolor_tree(self, node, mode: str):
@@ -263,12 +266,18 @@ class DSLVisualizerApp(QMainWindow):
     def _on_step_forward(self, auto_continue=False):
         if self._animating:
             return
-        if not self.animation_queue:
+
+        # Determine next action: prefer the live queue; fall back to redo stack.
+        if self.animation_queue:
+            action = self.animation_queue.pop(0)
+            # A new action invalidates any pending redo history.
+            self._redo_stack.clear()
+        elif self._redo_stack:
+            action = self._redo_stack.pop()
+        else:
             if not auto_continue:
                 self._status("Status: No more steps in the queue.")
             return
-
-        action = self.animation_queue.pop(0)
 
         # Highlight (deletion flash)
         if isinstance(action, dict) and action.get("type") == "highlight":
@@ -289,8 +298,9 @@ class DSLVisualizerApp(QMainWindow):
             self._on_step_forward(auto_continue)
             return
 
-        # Snapshot for undo
-        self._history_stack.append(copy.deepcopy(self.bst.root))
+        # Snapshot for undo — store the action alongside the pre-action tree
+        # so that step-back can push it onto the redo stack.
+        self._history_stack.append((copy.deepcopy(self.bst.root), action))
 
         start_positions = dict(self._current_positions)
         action()  # mutate BST
@@ -327,7 +337,9 @@ class DSLVisualizerApp(QMainWindow):
             return
 
         start_positions = dict(self._current_positions)
-        self.bst.root = self._history_stack.pop()
+        pre_state, action = self._history_stack.pop()
+        self._redo_stack.append(action)
+        self.bst.root = pre_state
 
         targets = self.renderer.capture_target_positions(self.bst.root)
         self._animating = True
