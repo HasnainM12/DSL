@@ -336,6 +336,32 @@ class CodeEditor(QPlainTextEdit):
     def _clear_error_selections(self):
         self.setExtraSelections([])
 
+    def highlight_diagnostic_line(self, line: int):
+        """Scroll to and highlight a line with amber background (diagnostic click)."""
+        self._clear_error_selections()
+        block = self.document().findBlockByLineNumber(line - 1)
+        if not block.isValid():
+            return
+        # Scroll the editor so the line is visible
+        cursor = QTextCursor(block)
+        self.setTextCursor(cursor)
+        self.centerCursor()
+        # Apply amber highlight
+        selection = QTextEdit.ExtraSelection()
+        fmt = QTextCharFormat()
+        fmt.setBackground(QColor(COLOURS.get("diag_warning_bg", "#FFF3CD")))
+        selection.format = fmt
+        selection.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
+        selection.cursor = cursor
+
+        cl = QTextEdit.ExtraSelection()
+        cl.format.setBackground(QColor(COLOURS["bg_card"]))
+        cl.format.setProperty(QTextFormat.Property.FullWidthSelection, True)
+        cl.cursor = self.textCursor()
+        cl.cursor.clearSelection()
+        self.setExtraSelections([cl, selection])
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Panel wrapper
@@ -406,3 +432,6 @@ class EditorPanel(QWidget):
 
     def set_validate_callback(self, cb):
         self.editor.set_validate_callback(cb)
+
+    def highlight_diagnostic_line(self, line: int):
+        self.editor.highlight_diagnostic_line(line)

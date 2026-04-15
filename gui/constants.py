@@ -71,6 +71,13 @@ COLOURS = {
     "avl_hud_bg":       "#DDCBB7",   # Warm Taupe
     "avl_hud_fg":       "#1A202C",   # Charcoal
     "avl_highlight":    "#C3B2A0",   # Active Highlight
+
+    # Diagnostics Panel
+    "diag_warning_bg":   "#FFF3CD",   # Pale amber line highlight
+    "diag_warning_fg":   "#856404",   # Dark amber text
+    "diag_badge_bg":     "#F6AD55",   # Orange badge background
+    "diag_badge_fg":     "#FFFFFF",   # White badge text
+    "diag_ok_fg":        "#38A169",   # Green for "no issues" state
 }
 
 NODE_RADIUS           = 24

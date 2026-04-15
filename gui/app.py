@@ -33,6 +33,7 @@ from gui.constants import (
     TEMPLATES,
 )
 from gui.controls import ControlPanel
+from gui.diagnostics_panel import DiagnosticsPanel
 from gui.editor import EditorPanel
 from interpreter import DSLInterpreter
 from tree import BST
@@ -171,12 +172,16 @@ class DSLVisualizerApp(QMainWindow):
         # Horizontal: left panel | canvas
         h_split = QSplitter(Qt.Orientation.Horizontal)
 
-        # Vertical left panel: editor | AST | controls
+        # Vertical left panel: editor | AST | diagnostics | controls
         v_split = QSplitter(Qt.Orientation.Vertical)
         v_split.setMinimumWidth(340)
 
         self.editor_panel = EditorPanel(v_split)
         self.ast_panel = ASTPanel(v_split)
+        self.diagnostics_panel = DiagnosticsPanel(
+            v_split,
+            on_diagnostic_click=self._on_diagnostic_click,
+        )
         self.control_panel = ControlPanel(
             v_split,
             on_insert=self._on_insert_node,
@@ -185,15 +190,15 @@ class DSLVisualizerApp(QMainWindow):
             on_step_forward=self._on_step_forward,
             on_step_back=self._on_step_back,
             on_clear=self._on_clear_tree,
-            on_reset=self._on_reset_view,
             on_speed_change=self._on_speed_change,
             on_mode_change=self._on_mode_change,
             on_export=self._on_export,
         )
         v_split.addWidget(self._create_card(self.editor_panel))
         v_split.addWidget(self._create_card(self.ast_panel))
+        v_split.addWidget(self._create_card(self.diagnostics_panel))
         v_split.addWidget(self._create_card(self.control_panel))
-        v_split.setSizes([340, 140, 280])
+        v_split.setSizes([300, 120, 120, 220])
 
         self.renderer = CanvasRenderer(on_resize=self._on_canvas_resize)
 
@@ -255,11 +260,12 @@ class DSLVisualizerApp(QMainWindow):
         self._recolor_tree(node.left, mode)
         self._recolor_tree(node.right, mode)
 
-    def _on_step_forward(self):
+    def _on_step_forward(self, auto_continue=False):
         if self._animating:
             return
         if not self.animation_queue:
-            self._status("Status: No more steps in the queue.")
+            if not auto_continue:
+                self._status("Status: No more steps in the queue.")
             return
 
         action = self.animation_queue.pop(0)
@@ -272,7 +278,7 @@ class DSLVisualizerApp(QMainWindow):
                 self._current_positions,
                 callback=lambda: (
                     self._set_animating(False),
-                    self._on_step_forward(),
+                    self._on_step_forward(auto_continue),
                 ),
             )
             return
@@ -280,7 +286,7 @@ class DSLVisualizerApp(QMainWindow):
         # Highlight script line
         if isinstance(action, dict) and action.get("type") == "highlight_line":
             self.editor_panel.set_active_line(action["line"])
-            self._on_step_forward()
+            self._on_step_forward(auto_continue)
             return
 
         # Snapshot for undo
@@ -291,6 +297,12 @@ class DSLVisualizerApp(QMainWindow):
 
         targets = self.renderer.capture_target_positions(self.bst.root)
         self._animating = True
+
+        def _on_anim_done():
+            self._set_animating(False)
+            if auto_continue and self.animation_queue:
+                self._on_step_forward(auto_continue=True)
+
         self.renderer.animate_frame(
             start_positions,
             targets,
@@ -298,9 +310,7 @@ class DSLVisualizerApp(QMainWindow):
             ANIM_FRAMES,
             self._anim_delay,
             self._current_positions,
-            self.animation_queue,
-            self._on_step_forward,
-            self._set_animating,
+            on_complete=_on_anim_done,
         )
 
         self._steps_done += 1
@@ -328,9 +338,7 @@ class DSLVisualizerApp(QMainWindow):
             ANIM_FRAMES,
             self._anim_delay,
             self._current_positions,
-            self.animation_queue,
-            self._on_step_forward,
-            self._set_animating,
+            on_complete=lambda: self._set_animating(False),
         )
         self._status(f"Undone. {len(self._history_stack)} undo step(s) remaining.")
         self.renderer.draw_stats(self.bst.root)
@@ -425,7 +433,7 @@ class DSLVisualizerApp(QMainWindow):
         total = len(self.animation_queue)
         self._total_steps = total
         self._steps_done = 0
-        self._on_step_forward()
+        self._on_step_forward(auto_continue=True)
         self.control_panel.clear_insert_entry()
         balance_note = (
             f" + {total - 2} balance step(s)" if total > 2 else ""
@@ -456,10 +464,15 @@ class DSLVisualizerApp(QMainWindow):
             self.editor_panel.set_error(exc.line, exc.column, str(exc))
             self._status(f"Syntax Error at line {exc.line}, col {exc.column}.")
             self.ast_panel.clear()
+            self.diagnostics_panel.clear()
             return
 
         # Show AST
         self.ast_panel.update(parsed_tree)
+
+        # Run static analysis (warnings don't block execution)
+        diagnostics = self.interpreter.analyser.analyse(parsed_tree, mode=self.current_mode)
+        self.diagnostics_panel.set_diagnostics(diagnostics)
 
         has_balance_rules = any(
             sub.data == "rule" for sub in parsed_tree.iter_subtrees()
@@ -531,7 +544,7 @@ class DSLVisualizerApp(QMainWindow):
 
         self._total_steps = total
         self._steps_done = 0
-        self._on_step_forward()
+        self._on_step_forward(auto_continue=True)
         self._status(f"Queued {total} step(s). Animating…")
 
     def _on_reset_view(self):
@@ -566,7 +579,7 @@ class DSLVisualizerApp(QMainWindow):
                 "val": node.val,
                 "height": node.height,
                 "balance_factor": lh - rh,
-                "colour": node.colour,
+                "colour": getattr(node, "colour", "N/A"),
             }
         )
         self._collect_rows(node.left, rows)
@@ -593,21 +606,35 @@ class DSLVisualizerApp(QMainWindow):
                 return f"Executing rule on line {action.get('line')}"
         return str(action)
 
+    def _on_diagnostic_click(self, line: int):
+        """Navigate the editor to the line referenced by a diagnostic."""
+        self.editor_panel.highlight_diagnostic_line(line)
+
     def _validate_script(self, script: str):
         if not script:
             self.editor_panel.clear_error()
+            self.diagnostics_panel.clear()
             self._status("")
             return
         try:
-            self.interpreter.parser.parse(script)
+            parsed_tree = self.interpreter.parser.parse(script)
         except UnexpectedInput as exc:
             self.editor_panel.set_error(exc.line, exc.column, str(exc))
             self._status(f"Syntax Error at line {exc.line}, col {exc.column}.")
+            self.diagnostics_panel.clear()
         except Exception:
             pass
         else:
             self.editor_panel.clear_error()
-            self._status("✓ Script valid")
+            # Run static analysis on the valid parse tree
+            diagnostics = self.interpreter.analyser.analyse(
+                parsed_tree, mode=self.current_mode
+            )
+            self.diagnostics_panel.set_diagnostics(diagnostics)
+            if diagnostics:
+                self._status(f"✓ Valid — {len(diagnostics)} warning(s)")
+            else:
+                self._status("✓ Script valid")
 
     # ── keyboard shortcuts ───────────────────────────────────────────────
 

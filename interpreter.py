@@ -2,6 +2,7 @@ import os
 
 from lark import Lark, Transformer, Tree, v_args
 
+from analyser import StaticAnalyser
 from tree import BST, TreeNode
 
 
@@ -312,6 +313,7 @@ class DSLInterpreter:
             )
 
         self.rotations = 0
+        self.analyser = StaticAnalyser()
 
     def apply_rules(self, node, dsl_input, return_flag=False):
         if not node:
@@ -540,6 +542,15 @@ class DSLInterpreter:
         parsed_tree = self.parser.parse(dsl_script)  # caller handles errors
         evaluator = BalancingLogic(current_node=None)
         return evaluator.transform(parsed_tree)
+
+    def analyse_script(self, dsl_script, mode="AVL"):
+        """Parse a DSL script and run static analysis.
+
+        Returns a list of :class:`~analyser.Diagnostic` objects.
+        Warnings never block execution.
+        """
+        parsed_tree = self.parser.parse(dsl_script)
+        return self.analyser.analyse(parsed_tree, mode=mode)
 
     def balance_tree(self, node, dsl_script):
         if not node:

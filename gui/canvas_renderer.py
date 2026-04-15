@@ -235,9 +235,21 @@ class CanvasRenderer(QWidget):
             if self.mode == MODE_AVL:
                 m_bf = self._max_bf(bst_root)
                 self.root_bf_lbl.setText(f"Max BF: {m_bf}")
+                
+                # --- NEW: DYNAMIC WARNING HIGHLIGHT ---
+                if abs(m_bf) > 1:
+                    # Invariant violated: Change pill background to a bold warning red
+                    self._update_pill_style(self.root_bf_lbl, "#E63946", "#FFFFFF") 
+                else:
+                    # Invariant maintained: Revert to standard AVL colours
+                    self._update_pill_style(self.root_bf_lbl, COLOURS["avl_hud_bg"], COLOURS["avl_hud_fg"])
+                # --------------------------------------
+
             else:
                 bh = self._black_height(bst_root)
                 self.root_bf_lbl.setText(f"Black Height: {bh}")
+                # Ensure RB mode pill stays the correct colour
+                self._update_pill_style(self.root_bf_lbl, COLOURS["node_red_fill"], "#FFFFFF")
 
             self.nodes_lbl.show()
             self.height_lbl.show()
@@ -257,8 +269,8 @@ class CanvasRenderer(QWidget):
 
     def animate_frame(
         self, start, targets, frame, total_frames,
-        anim_delay, current_positions, animation_queue,
-        on_step_forward, animating_setter,
+        anim_delay, current_positions,
+        on_complete=None,
     ):
         """Interpolate one frame and schedule the next via QTimer."""
         # Slight bounce (easeOutBack)
@@ -283,16 +295,15 @@ class CanvasRenderer(QWidget):
                 anim_delay,
                 lambda: self.animate_frame(
                     start, targets, frame + 1, total_frames,
-                    anim_delay, current_positions, animation_queue,
-                    on_step_forward, animating_setter,
+                    anim_delay, current_positions,
+                    on_complete,
                 ),
             )
         else:
             current_positions.clear()
             current_positions.update(targets)
-            animating_setter(False)
-            if animation_queue:
-                QTimer.singleShot(10, on_step_forward)
+            if on_complete:
+                on_complete()
 
     def _find_parent_start(self, child, start, targets):
         for node in targets:
