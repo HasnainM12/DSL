@@ -84,7 +84,7 @@ class ControlPanel(QWidget):
     def __init__(
         self, parent=None, *,
         on_insert, on_delete, on_run_script,
-        on_step_forward, on_step_back, on_clear, on_reset,
+        on_step_forward, on_step_back, on_clear,
         on_speed_change, on_mode_change, on_export=None,
     ):
         super().__init__(parent)
@@ -101,7 +101,7 @@ class ControlPanel(QWidget):
         layout.addWidget(_separator())
         self._build_script_controls(layout, on_run_script, on_step_forward, on_step_back)
         layout.addWidget(_separator())
-        self._build_management(layout, on_clear, on_reset, on_export)
+        self._build_management(layout, on_clear, on_export)
 
         layout.addStretch()
 
@@ -293,7 +293,7 @@ class ControlPanel(QWidget):
 
         layout.addLayout(speed_row)
 
-    def _build_management(self, layout, on_clear, on_reset, on_export):
+    def _build_management(self, layout, on_clear, on_export):
         layout.addWidget(_section_header("🔧  Tree Management"))
 
         row = QHBoxLayout()
@@ -308,14 +308,6 @@ class ControlPanel(QWidget):
         )
         clear_btn.clicked.connect(on_clear)
         row.addWidget(clear_btn)
-
-        reset_btn = _btn(
-            "Reset", COLOURS["btn_neutral"], COLOURS["btn_neutral_hover"],
-            "Recompute and redraw the tree",
-            "rotate-ccw.svg"
-        )
-        reset_btn.clicked.connect(on_reset)
-        row.addWidget(reset_btn)
 
         if on_export:
             export_btn = _btn(

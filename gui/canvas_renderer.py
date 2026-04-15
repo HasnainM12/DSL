@@ -257,8 +257,8 @@ class CanvasRenderer(QWidget):
 
     def animate_frame(
         self, start, targets, frame, total_frames,
-        anim_delay, current_positions, animation_queue,
-        on_step_forward, animating_setter,
+        anim_delay, current_positions,
+        on_complete=None,
     ):
         """Interpolate one frame and schedule the next via QTimer."""
         # Slight bounce (easeOutBack)
@@ -283,16 +283,15 @@ class CanvasRenderer(QWidget):
                 anim_delay,
                 lambda: self.animate_frame(
                     start, targets, frame + 1, total_frames,
-                    anim_delay, current_positions, animation_queue,
-                    on_step_forward, animating_setter,
+                    anim_delay, current_positions,
+                    on_complete,
                 ),
             )
         else:
             current_positions.clear()
             current_positions.update(targets)
-            animating_setter(False)
-            if animation_queue:
-                QTimer.singleShot(10, on_step_forward)
+            if on_complete:
+                on_complete()
 
     def _find_parent_start(self, child, start, targets):
         for node in targets:

@@ -185,7 +185,6 @@ class DSLVisualizerApp(QMainWindow):
             on_step_forward=self._on_step_forward,
             on_step_back=self._on_step_back,
             on_clear=self._on_clear_tree,
-            on_reset=self._on_reset_view,
             on_speed_change=self._on_speed_change,
             on_mode_change=self._on_mode_change,
             on_export=self._on_export,
@@ -255,11 +254,12 @@ class DSLVisualizerApp(QMainWindow):
         self._recolor_tree(node.left, mode)
         self._recolor_tree(node.right, mode)
 
-    def _on_step_forward(self):
+    def _on_step_forward(self, auto_continue=False):
         if self._animating:
             return
         if not self.animation_queue:
-            self._status("Status: No more steps in the queue.")
+            if not auto_continue:
+                self._status("Status: No more steps in the queue.")
             return
 
         action = self.animation_queue.pop(0)
@@ -272,7 +272,7 @@ class DSLVisualizerApp(QMainWindow):
                 self._current_positions,
                 callback=lambda: (
                     self._set_animating(False),
-                    self._on_step_forward(),
+                    self._on_step_forward(auto_continue),
                 ),
             )
             return
@@ -280,7 +280,7 @@ class DSLVisualizerApp(QMainWindow):
         # Highlight script line
         if isinstance(action, dict) and action.get("type") == "highlight_line":
             self.editor_panel.set_active_line(action["line"])
-            self._on_step_forward()
+            self._on_step_forward(auto_continue)
             return
 
         # Snapshot for undo
@@ -291,6 +291,12 @@ class DSLVisualizerApp(QMainWindow):
 
         targets = self.renderer.capture_target_positions(self.bst.root)
         self._animating = True
+
+        def _on_anim_done():
+            self._set_animating(False)
+            if auto_continue and self.animation_queue:
+                self._on_step_forward(auto_continue=True)
+
         self.renderer.animate_frame(
             start_positions,
             targets,
@@ -298,9 +304,7 @@ class DSLVisualizerApp(QMainWindow):
             ANIM_FRAMES,
             self._anim_delay,
             self._current_positions,
-            self.animation_queue,
-            self._on_step_forward,
-            self._set_animating,
+            on_complete=_on_anim_done,
         )
 
         self._steps_done += 1
@@ -328,9 +332,7 @@ class DSLVisualizerApp(QMainWindow):
             ANIM_FRAMES,
             self._anim_delay,
             self._current_positions,
-            self.animation_queue,
-            self._on_step_forward,
-            self._set_animating,
+            on_complete=lambda: self._set_animating(False),
         )
         self._status(f"Undone. {len(self._history_stack)} undo step(s) remaining.")
         self.renderer.draw_stats(self.bst.root)
@@ -425,7 +427,7 @@ class DSLVisualizerApp(QMainWindow):
         total = len(self.animation_queue)
         self._total_steps = total
         self._steps_done = 0
-        self._on_step_forward()
+        self._on_step_forward(auto_continue=True)
         self.control_panel.clear_insert_entry()
         balance_note = (
             f" + {total - 2} balance step(s)" if total > 2 else ""
@@ -531,7 +533,7 @@ class DSLVisualizerApp(QMainWindow):
 
         self._total_steps = total
         self._steps_done = 0
-        self._on_step_forward()
+        self._on_step_forward(auto_continue=True)
         self._status(f"Queued {total} step(s). Animating…")
 
     def _on_reset_view(self):
@@ -566,7 +568,7 @@ class DSLVisualizerApp(QMainWindow):
                 "val": node.val,
                 "height": node.height,
                 "balance_factor": lh - rh,
-                "colour": node.colour,
+                "colour": getattr(node, "colour", "N/A"),
             }
         )
         self._collect_rows(node.left, rows)
